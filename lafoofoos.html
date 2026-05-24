@@ -1,0 +1,2781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>Lafoofoos — Squishy Dumpling Adventure</title>
+<style>
+  :root{
+    --pink:#ffb3c6;
+    --pink-deep:#ff7aa2;
+    --cream:#fff4dc;
+    --bamboo:#d6a667;
+    --bamboo-dark:#a87538;
+    --gold:#ffd34d;
+    --gold-deep:#e6a700;
+    --sky-top:#ffe8f1;
+    --sky-bot:#fff8e6;
+    --ink:#4a2b3a;
+    --ink-soft:#7a5263;
+    --shadow:rgba(74,43,58,.15);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:linear-gradient(160deg,#ffe8f1,#fff8e6 60%,#e8f7ff);
+    font-family:"Nunito","Comic Sans MS",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    color:var(--ink);
+    overflow:hidden;
+    user-select:none;
+    touch-action:none;
+  }
+  #wrap{
+    position:fixed;inset:0;
+    display:block;
+  }
+  #stage{
+    position:fixed;inset:0;
+    width:100vw;height:100vh;
+    background:linear-gradient(180deg,#ffe6f0 0%, #fff3e0 55%, #d5ecff 100%);
+    overflow:hidden;
+  }
+  /* The game canvas keeps a 16:9 letterbox inside the stage */
+  canvas#game{
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    width:min(100vw, calc(100vh * 16/9));
+    height:min(100vh, calc(100vw * 9/16));
+    display:block;
+    image-rendering:auto;
+  }
+
+  /* HUD */
+  .hud{
+    position:absolute;left:0;right:0;top:0;
+    display:flex;align-items:flex-start;justify-content:space-between;
+    padding:14px 16px;pointer-events:none;
+    font-weight:800;
+    text-shadow:0 2px 0 rgba(255,255,255,.7);
+  }
+  .hud .left,.hud .right{display:flex;gap:10px;align-items:center;pointer-events:auto;}
+  .pill{
+    background:rgba(255,255,255,.78);
+    backdrop-filter:blur(6px);
+    border:2px solid #ffd9e3;
+    border-radius:999px;
+    padding:6px 14px;
+    display:flex;gap:8px;align-items:center;
+    box-shadow:0 4px 0 rgba(255,180,200,.45),0 8px 18px rgba(255,150,180,.18);
+    color:var(--ink);
+    font-size:18px;
+  }
+  .pill.coin{border-color:#ffe39a;}
+  .pill.hearts{border-color:#ffc1d0;}
+  .pill .ic{width:22px;height:22px;display:inline-block;}
+  .btn-round{
+    width:42px;height:42px;border-radius:50%;
+    background:#fff;border:2px solid #ffd9e3;
+    box-shadow:0 4px 0 rgba(255,180,200,.45),0 8px 16px rgba(255,150,180,.2);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:20px;color:var(--ink);
+    transition:transform .08s ease;
+  }
+  .btn-round:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(255,180,200,.45);}
+  .btn-round svg{width:22px;height:22px;}
+
+  /* Touch controls */
+  .touch{
+    position:absolute;inset:auto 0 0 0;display:none;
+    padding:0 18px 18px;justify-content:space-between;align-items:flex-end;
+    pointer-events:none;
+  }
+  .touch.show{display:flex;}
+  .touch .dpad,.touch .jump{pointer-events:auto;display:flex;gap:14px;}
+  .touch .tbtn{
+    width:64px;height:64px;border-radius:50%;
+    background:rgba(255,255,255,.78);
+    border:2px solid #ffd9e3;
+    color:var(--ink);font-size:26px;font-weight:900;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 0 rgba(255,180,200,.45);
+    user-select:none;
+  }
+  .touch .jump .tbtn{width:84px;height:84px;background:#fff4dc;border-color:#ffd87a;}
+
+  /* Overlay screens */
+  .overlay{
+    position:fixed;inset:0;display:none;
+    align-items:flex-start;justify-content:center;
+    background:radial-gradient(ellipse at center, rgba(255,232,241,.85), rgba(255,248,230,.92));
+    backdrop-filter:blur(2px);
+    padding:20px;
+    z-index:5;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .overlay.show{display:flex;}
+  .panel{
+    background:#fff;
+    border:3px solid #ffd9e3;
+    border-radius:24px;
+    padding:18px 18px 16px;
+    max-width:760px;width:100%;
+    margin:auto;
+    box-shadow:0 18px 0 rgba(255,180,200,.35),0 24px 50px rgba(255,150,180,.25);
+    display:flex;flex-direction:column;
+  }
+  /* Shop & collection panels still need an inner scroll grid */
+  .panel.tall{max-height:calc(100vh - 40px); overflow:hidden;}
+  .panel h1,.panel h2{
+    margin:0 0 6px;
+    text-align:center;
+    color:var(--pink-deep);
+    text-shadow:0 2px 0 #fff,0 3px 0 #ffd9e3;
+    letter-spacing:.5px;
+  }
+  .panel h1{font-size:34px;}
+  .panel h2{font-size:24px;}
+  .panel .sub{text-align:center;color:var(--ink-soft);margin-bottom:10px;font-weight:700;}
+  .btn{
+    background:linear-gradient(180deg,#ffd0de,#ff9ec0);
+    color:#fff;border:none;border-radius:999px;
+    padding:12px 22px;font-size:18px;font-weight:900;
+    cursor:pointer;letter-spacing:.5px;
+    box-shadow:0 6px 0 #ff7aa2,0 10px 22px rgba(255,120,160,.35);
+    text-shadow:0 2px 0 rgba(255,120,160,.4);
+    transition:transform .08s ease;
+  }
+  .btn:hover{filter:brightness(1.03);}
+  .btn:active{transform:translateY(3px);box-shadow:0 3px 0 #ff7aa2;}
+  .btn.gold{background:linear-gradient(180deg,#ffe79c,#ffc847);box-shadow:0 6px 0 #d39200,0 10px 22px rgba(220,160,40,.35);text-shadow:0 2px 0 rgba(170,120,0,.4);}
+  .btn.ghost{background:#fff;color:var(--ink);box-shadow:0 4px 0 #ffd9e3;border:2px solid #ffd9e3;text-shadow:none;}
+  .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+
+  /* Title screen */
+  #titleScreen .panel{align-items:center;}
+  #titleScreen .logo{
+    font-size:clamp(34px, 7vw, 54px);font-weight:900;color:var(--pink-deep);
+    text-shadow:0 3px 0 #fff,0 5px 0 #ffd9e3,0 12px 22px rgba(255,120,160,.25);
+    letter-spacing:1px;
+    transform:rotate(-2deg);
+    margin:4px 0 4px;line-height:1;
+  }
+  #titleScreen .tag{color:var(--ink-soft);font-weight:700;margin-bottom:10px;}
+  #titleScreen .picker{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:6px 0 12px;}
+  #titleScreen .picker .card{max-width:140px;}
+  #titleScreen .picker .card canvas{width:80px;height:80px;}
+  #titleArt{max-width:min(100%, 320px);}
+
+  /* Grids for shop + collection */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:12px;
+    overflow-y:auto;
+    padding:6px 4px 6px;
+    flex:1;
+  }
+  .card{
+    background:#fff8fb;
+    border:2px solid #ffd9e3;
+    border-radius:18px;
+    padding:10px 8px 12px;
+    text-align:center;
+    position:relative;
+    box-shadow:0 4px 0 #ffd9e3;
+    transition:transform .08s ease;
+    cursor:pointer;
+  }
+  .card:active{transform:translateY(2px);box-shadow:0 2px 0 #ffd9e3;}
+  .card canvas{position:static;width:100px;height:100px;margin:0 auto 4px;display:block;}
+  .card .name{font-weight:900;color:var(--ink);font-size:15px;line-height:1.1;margin-bottom:2px;}
+  .card .rarity{font-size:11px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-soft);}
+  .card .price{margin-top:6px;display:inline-flex;align-items:center;gap:4px;font-weight:900;color:var(--gold-deep);background:#fff4d0;border:1.5px solid #ffe39a;border-radius:999px;padding:2px 8px;font-size:13px;}
+  .card.locked .preview{filter:grayscale(.6) brightness(.95);opacity:.85;}
+  .card.unlocked .price{background:#e8ffe2;border-color:#bbe4a8;color:#3f8a23;}
+  .card.equipped{border-color:#ffb84a;box-shadow:0 0 0 3px #fff2bf,0 4px 0 #ffd58a;}
+  .card .badge{
+    position:absolute;top:6px;right:6px;
+    background:#fff;border:1.5px solid #ffd9e3;border-radius:999px;
+    padding:2px 7px;font-size:10px;font-weight:900;color:var(--pink-deep);
+  }
+  .card.locked .badge{color:#bbb;}
+  .card.equipped .badge{background:#ffe79c;border-color:#ffb84a;color:#8a5b00;}
+
+  .rarity.common{color:#7e7e7e;}
+  .rarity.rare{color:#3b87cf;}
+  .rarity.epic{color:#9a4dd6;}
+  .rarity.legendary{color:#d28a00;}
+
+  .box-card{background:linear-gradient(180deg,#fff8fb,#fff0f6);}
+  .box-card .rates-row{
+    display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:4px;
+  }
+  .box-card .rate{
+    font-size:10px;font-weight:900;padding:2px 6px;border-radius:999px;
+    border:1.5px solid #eee;background:#fff;letter-spacing:.3px;
+  }
+  .rate.rate-common{color:#5a5a5a;border-color:#dcdcdc;}
+  .rate.rate-rare{color:#2b6db5;border-color:#bcd6f0;background:#eaf3ff;}
+  .rate.rate-epic{color:#7a39b0;border-color:#d7c0ee;background:#f4ebff;}
+  .rate.rate-legendary{color:#b06a00;border-color:#ffd87a;background:#fff4d0;}
+
+  .tabs{display:flex;gap:6px;justify-content:center;margin:2px 0 8px;flex-wrap:wrap;}
+  .tab{
+    background:#fff;border:2px solid #ffd9e3;color:var(--ink);
+    border-radius:999px;padding:6px 14px;cursor:pointer;font-weight:800;font-size:14px;
+  }
+  .tab.active{background:#ffd0de;border-color:#ff9ec0;color:#fff;text-shadow:0 1px 0 #ff7aa2;}
+
+  .footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;}
+  .balance{font-weight:900;color:var(--gold-deep);background:#fff4d0;border:1.5px solid #ffe39a;border-radius:999px;padding:6px 12px;font-size:16px;display:inline-flex;gap:6px;align-items:center;}
+
+  /* Reward / Popup */
+  .toast{
+    position:absolute;left:50%;top:20%;transform:translate(-50%,0);
+    background:#fff;border:3px solid #ffd9e3;border-radius:20px;
+    padding:10px 18px;font-weight:900;color:var(--pink-deep);
+    box-shadow:0 8px 0 rgba(255,180,200,.35),0 14px 30px rgba(255,150,180,.25);
+    z-index:6;opacity:0;pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+    text-align:center;font-size:18px;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,-12px);}
+
+  .reveal-bg{
+    position:absolute;inset:0;background:radial-gradient(ellipse at center,#fff4d0,#ffe3ee 55%,rgba(255,232,238,0) 80%);
+    opacity:0;transition:opacity .4s ease;pointer-events:none;z-index:4;
+  }
+  .reveal-bg.show{opacity:1;}
+
+  /* Mini coin glyph */
+  .coin-ic{width:18px;height:18px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#fff6b8,#ffd34d 60%,#c98800 100%);
+    border:1.5px solid #c98800;display:inline-flex;align-items:center;justify-content:center;
+    font-weight:900;color:#8a5500;font-size:11px;text-shadow:0 1px 0 #fff3b0;
+  }
+  .heart-ic{width:18px;height:18px;background:
+    radial-gradient(circle at 30% 30%,#ffb3c6,#ff5d86 70%);
+    -webkit-mask:radial-gradient(circle at 30% 35%, #000 9px, transparent 10px) 0 0/12px 12px no-repeat,
+                 radial-gradient(circle at 70% 35%, #000 9px, transparent 10px) 0 0/12px 12px no-repeat,
+                 linear-gradient(#000,#000);
+    -webkit-mask-composite:source-over;
+  }
+  /* simpler heart using clip-path */
+  .heart{
+    width:18px;height:18px;background:linear-gradient(#ff7aa2,#ff4f7f);
+    clip-path:path('M9 16 C 2 11, 0 6.5, 3 3.5 C 5.2 1.3, 8 2.5, 9 4.5 C 10 2.5, 12.8 1.3, 15 3.5 C 18 6.5, 16 11, 9 16 Z');
+    display:inline-block;
+  }
+  .heart.empty{filter:grayscale(.7) brightness(1.1);opacity:.45;}
+
+  .pause-fab{position:absolute;top:14px;right:16px;}
+  .menu-fabs{position:absolute;bottom:14px;right:16px;display:flex;gap:10px;}
+  @media (max-width:520px){
+    .pill{font-size:15px;padding:5px 11px;}
+    #titleScreen .logo{font-size:42px;}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));}
+    .card canvas{width:80px;height:80px;}
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="game" width="1600" height="900"></canvas>
+
+    <!-- HUD -->
+    <div class="hud" id="hud">
+      <div class="left">
+        <div class="pill hearts" id="heartsPill" title="Hearts">
+          <span id="hearts"><span class="heart"></span><span class="heart"></span><span class="heart"></span></span>
+        </div>
+        <div class="pill coin" title="Lafoofoos">
+          <span class="coin-ic">L</span>
+          <span id="balance">0</span>
+        </div>
+        <div class="pill" id="charPill" title="Current dumpling">
+          <canvas id="charIcon" width="32" height="32" style="width:24px;height:24px;position:static;"></canvas>
+          <span id="charName">Pink Bao Buddy</span>
+        </div>
+      </div>
+      <div class="right">
+        <button class="btn-round" id="btnPause" title="Pause">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="9" y1="6" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="menu-fabs">
+      <button class="btn-round" id="btnShop" title="Shop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16l-1.5 10a2 2 0 0 1-2 1.7H7.5A2 2 0 0 1 5.5 18L4 8z"/><path d="M8 8a4 4 0 0 1 8 0"/></svg>
+      </button>
+      <button class="btn-round" id="btnCollection" title="Collection">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M9 4v6"/></svg>
+      </button>
+    </div>
+
+    <!-- Touch controls -->
+    <div class="touch" id="touch">
+      <div class="dpad">
+        <button class="tbtn" id="tLeft">◀</button>
+        <button class="tbtn" id="tRight">▶</button>
+      </div>
+      <div class="jump">
+        <button class="tbtn" id="tJump">JUMP</button>
+      </div>
+    </div>
+
+    <!-- Title screen -->
+    <div class="overlay show" id="titleScreen">
+      <div class="panel">
+        <div class="logo">Lafoofoos</div>
+        <div class="tag">Squishy Dumpling Adventure</div>
+        <canvas id="titleArt" width="380" height="180" style="position:static;width:min(100%,380px);height:auto;margin:0 auto 10px;display:block;"></canvas>
+        <div class="sub">Pick your starter dumpling</div>
+        <div class="picker" id="picker"></div>
+        <div class="row" style="margin-top:6px;">
+          <button class="btn" id="btnPlay">Start adventure</button>
+          <button class="btn ghost" id="btnHow">How to play</button>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn ghost" id="btnTitleShop">🛍 Shop</button>
+          <button class="btn ghost" id="btnTitleCollection">📔 Collection</button>
+          <button class="btn ghost" id="btnReset" title="Reset save">⟲ Reset</button>
+        </div>
+        <div id="dailyToast" style="margin-top:10px;text-align:center;color:#3f8a23;font-weight:800;"></div>
+      </div>
+    </div>
+
+    <!-- How to play -->
+    <div class="overlay" id="howScreen">
+      <div class="panel">
+        <h2>How to play</h2>
+        <div style="padding:6px 6px 0 6px;font-weight:700;color:var(--ink-soft);line-height:1.5;">
+          <p><b>Move:</b> ← → or A/D. <b>Jump:</b> Space, W, or ↑. Double-tap jump for a little air-puff!</p>
+          <p><b>Collect Lafoofoos coins</b> and reach the glowing goal at the end of each level.</p>
+          <p>Bounce on top of soft enemies to bop them. Side-touches cost a heart!</p>
+          <p>Spend Lafoofoos in the <b>Shop</b> on <b>mystery steamer boxes</b> 📦 — each one contains a random dumpling friend! Higher tier boxes have better odds of rare and legendary pulls. Duplicates give back some Lafoofoos as shards. The shop also has baskets, hats, sparkle trails and themes you can buy directly.</p>
+          <p>On mobile, use the on-screen buttons. Tap Jump again in midair for a small float.</p>
+        </div>
+        <div class="row" style="margin-top:10px;"><button class="btn" id="btnHowClose">Got it!</button></div>
+      </div>
+    </div>
+
+    <!-- Pause -->
+    <div class="overlay" id="pauseScreen">
+      <div class="panel">
+        <h2>Paused</h2>
+        <div class="sub">Take a breath. The dumplings will wait.</div>
+        <div class="row">
+          <button class="btn" id="btnResume">Resume</button>
+          <button class="btn ghost" id="btnPauseShop">🛍 Shop</button>
+          <button class="btn ghost" id="btnPauseCollection">📔 Collection</button>
+          <button class="btn ghost" id="btnPauseTitle">⌂ Main menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Level complete -->
+    <div class="overlay" id="levelComplete">
+      <div class="panel" style="align-items:center;">
+        <h1>Yum! Level cleared</h1>
+        <canvas id="lcArt" width="220" height="180" style="position:static;width:220px;height:180px;margin:0 auto 6px;display:block;"></canvas>
+        <div class="sub" id="lcSub">You collected so many Lafoofoos!</div>
+        <div id="lcBreakdown" style="display:flex;flex-direction:column;gap:6px;align-items:stretch;max-width:340px;margin:6px auto 12px;font-weight:800;color:var(--ink);"></div>
+        <div class="row">
+          <button class="btn" id="btnNext">Next level</button>
+          <button class="btn ghost" id="btnReplay">Replay</button>
+          <button class="btn ghost" id="btnLCShop">🛍 Shop</button>
+          <button class="btn ghost" id="btnLCTitle">⌂ Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div class="overlay" id="gameOver">
+      <div class="panel" style="align-items:center;">
+        <h1>Oh no, squish!</h1>
+        <div class="sub">You ran out of hearts.</div>
+        <div class="row">
+          <button class="btn" id="btnRetry">Try again</button>
+          <button class="btn ghost" id="btnGOTitle">⌂ Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shop -->
+    <div class="overlay" id="shopScreen">
+      <div class="panel tall">
+        <h2>🛍 Lafoofoos Shop</h2>
+        <div class="tabs" id="shopTabs">
+          <div class="tab active" data-cat="character">Dumplings</div>
+          <div class="tab" data-cat="basket">Baskets</div>
+          <div class="tab" data-cat="hat">Hats</div>
+          <div class="tab" data-cat="trail">Trails</div>
+          <div class="tab" data-cat="theme">Themes</div>
+        </div>
+        <div class="grid" id="shopGrid"></div>
+        <div class="footer">
+          <div class="balance">🪙 <span id="shopBalance">0</span> Lafoofoos</div>
+          <div class="row">
+            <button class="btn ghost" id="btnShopClose">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collection -->
+    <div class="overlay" id="collectionScreen">
+      <div class="panel tall">
+        <h2>📔 Dumpling Collection</h2>
+        <div class="sub" id="colSub">Tap an unlocked dumpling to wear them!</div>
+        <div class="grid" id="collectionGrid"></div>
+        <div class="footer">
+          <div class="balance">🪙 <span id="colBalance">0</span> Lafoofoos</div>
+          <div class="row">
+            <button class="btn ghost" id="btnCollectionClose">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reveal -->
+    <div class="reveal-bg" id="revealBg"></div>
+    <div class="overlay" id="revealScreen">
+      <div class="panel" style="align-items:center;text-align:center;">
+        <h1 id="revealTitle">✨ New Dumpling! ✨</h1>
+        <canvas id="revealArt" width="220" height="220" style="position:static;width:220px;height:220px;margin:4px auto 6px;display:block;"></canvas>
+        <div class="sub" id="revealName"></div>
+        <div class="sub" id="revealRarity" style="margin-top:-4px;"></div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn" id="btnRevealEquip">Wear it!</button>
+          <button class="btn ghost" id="btnRevealClose">Maybe later</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unbox -->
+    <div class="overlay" id="unboxScreen">
+      <div class="panel" style="align-items:center;text-align:center;">
+        <h2 id="unboxTitle">Opening…</h2>
+        <div id="unboxBoxName" class="sub" style="margin-top:-4px;"></div>
+        <canvas id="unboxCanvas" width="480" height="420" style="position:static;width:min(100%,420px);height:auto;aspect-ratio:480/420;margin:6px auto 0;display:block;"></canvas>
+        <div id="unboxResultArea" style="display:none;margin-top:2px;">
+          <div class="sub" id="unboxResultName" style="font-size:22px;color:var(--ink);"></div>
+          <div id="unboxResultRarity" style="margin-top:-4px;font-weight:900;letter-spacing:.5px;"></div>
+          <div id="unboxResultDup" style="font-weight:800;color:#3f8a23;margin:6px 0 2px;"></div>
+        </div>
+        <div class="row" id="unboxButtons" style="display:none;margin-top:10px;">
+          <button class="btn" id="btnUnboxEquip">Wear it!</button>
+          <button class="btn ghost" id="btnUnboxAgain">Open another</button>
+          <button class="btn ghost" id="btnUnboxClose">Close</button>
+        </div>
+        <button class="btn ghost" id="btnUnboxSkip" style="margin-top:8px;">Skip ▶▶</button>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+// ====================================================
+//  LAFOOFOOS — Squishy Dumpling Adventure (single-file)
+// ====================================================
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const VW = canvas.width, VH = canvas.height; // logical
+const stage = document.getElementById("stage");
+
+// ---------- Save ----------
+const SAVE_KEY = "lafoofoos_save_v1";
+function defaultSave(){
+  return {
+    lafoofoos: 0,
+    unlocked: { character:["pink"], basket:["bamboo"], hat:[], trail:[], theme:["village"] },
+    equipped: { character:"pink", basket:"bamboo", hat:null, trail:null, theme:"village" },
+    levelsCleared: 0,
+    bestPerLevel: {},
+    lastDaily: 0,
+    sound: true,
+    seenIntro: false
+  };
+}
+let SAVE = loadSave();
+function loadSave(){
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return defaultSave();
+    const s = JSON.parse(raw);
+    // shallow merge to guard against schema drift
+    const d = defaultSave();
+    return Object.assign(d, s, {
+      unlocked: Object.assign(d.unlocked, s.unlocked||{}),
+      equipped: Object.assign(d.equipped, s.equipped||{}),
+      bestPerLevel: Object.assign(d.bestPerLevel, s.bestPerLevel||{})
+    });
+  } catch(e){ return defaultSave(); }
+}
+function saveNow(){
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch(e){}
+}
+
+// ---------- Catalog ----------
+const RARITY = {
+  common:{label:"Common", color:"#7e7e7e"},
+  rare:{label:"Rare", color:"#3b87cf"},
+  epic:{label:"Epic", color:"#9a4dd6"},
+  legendary:{label:"Legendary", color:"#d28a00"}
+};
+
+// Each dumpling defines a palette + face style
+const CHARACTERS = [
+  { id:"pink",    name:"Pink Bao Buddy",      rarity:"common",   price:0,    body:"#ffb6c8", body2:"#ff8db0", blush:"#ff6f96", cheek:"#ffd1de", eye:"#3b2435", face:"normal" },
+  { id:"blue",    name:"Blue Bubble Dumpling",rarity:"common",   price:150,  body:"#b6ddff", body2:"#7fbff5", blush:"#85b5e6", cheek:"#d8ecff", eye:"#1f2e4a", face:"calm" },
+  { id:"cream",   name:"Cloud Cream Dumpling",rarity:"rare",     price:400,  body:"#fff3d9", body2:"#f5d9aa", blush:"#e7b988", cheek:"#ffe7c4", eye:"#5a3b22", face:"smile" },
+  { id:"purple",  name:"Purple Star Dumpling",rarity:"epic",     price:900,  body:"#dabdf5", body2:"#b388e4", blush:"#9461d6", cheek:"#ecdbff", eye:"#3a224a", face:"wink", star:true },
+  { id:"gold",    name:"Golden Lucky Dumpling",rarity:"legendary",price:2500, body:"#ffd457", body2:"#d99500", blush:"#c47b00", cheek:"#fff0a8", eye:"#5a3b00", face:"sparkle", sparkle:true, shiny:true },
+  { id:"rainbow", name:"Rainbow Lafoofoo Dumpling",rarity:"legendary",price:5000,body:"rainbow",body2:"rainbow",blush:"#ff6f96",cheek:"#fff6f0",eye:"#2a234a",face:"sparkle",sparkle:true, rainbow:true }
+];
+
+const BASKETS = [
+  { id:"bamboo",   name:"Classic Bamboo",   rarity:"common",   price:0,    color:"#d6a667", dark:"#a87538" },
+  { id:"cherry",   name:"Cherry Lacquer",   rarity:"common",   price:120,  color:"#e88a8a", dark:"#a14444" },
+  { id:"jade",     name:"Jade Tea Basket",  rarity:"rare",     price:280,  color:"#9ad6b3", dark:"#5da37e" },
+  { id:"midnight", name:"Midnight Mochi",   rarity:"epic",     price:650,  color:"#6b5fa1", dark:"#3a3266" },
+  { id:"royal",    name:"Royal Gold Basket",rarity:"legendary",price:1500, color:"#ffd457", dark:"#a37000" }
+];
+
+const HATS = [
+  { id:"chef",     name:"Tiny Chef Hat",   rarity:"common", price:200, render:"chef" },
+  { id:"bow",      name:"Pastel Bow",      rarity:"common", price:160, render:"bow" },
+  { id:"crown",    name:"Lucky Crown",     rarity:"rare",   price:450, render:"crown" },
+  { id:"flower",   name:"Cherry Blossom",  rarity:"rare",   price:380, render:"flower" },
+  { id:"star",     name:"Wishing Star",    rarity:"epic",   price:800, render:"star" }
+];
+
+const TRAILS = [
+  { id:"sparkle",  name:"Sparkle Trail",  rarity:"common", price:140, color:"#ffeb8a" },
+  { id:"heart",    name:"Heart Trail",    rarity:"rare",   price:320, color:"#ffb6c8" },
+  { id:"bubble",   name:"Bubble Trail",   rarity:"rare",   price:300, color:"#cfeaff" },
+  { id:"rainbow",  name:"Rainbow Trail",  rarity:"epic",   price:700, color:"rainbow" }
+];
+
+const THEMES = [
+  { id:"village",  name:"Bamboo Steamer Village", rarity:"common", price:0 },
+  { id:"candy",    name:"Candy Cloud Kitchen",    rarity:"rare",   price:350 },
+  { id:"temple",   name:"Golden Dumpling Temple", rarity:"epic",   price:700 },
+  { id:"skyland",  name:"Bubble Tea Skyland",     rarity:"epic",   price:850 },
+  { id:"market",   name:"Midnight Mochi Market",  rarity:"legendary",price:1200}
+];
+
+const CATALOG = {
+  character: CHARACTERS,
+  basket: BASKETS,
+  hat: HATS,
+  trail: TRAILS,
+  theme: THEMES
+};
+
+// Mystery boxes — what you actually buy now to get dumpling characters
+const BOXES = [
+  {
+    id:"mini", name:"Mini Steamer Box", price:200,
+    color:"#d6a667", dark:"#a87538", ribbon:"#ff8db0", knot:"#ff5e8e",
+    tagline:"Cozy starter pulls", glow:"#ffe7c4",
+    rates:{ common:0.78, rare:0.20, epic:0.02, legendary:0 }
+  },
+  {
+    id:"royal", name:"Royal Steamer Box", price:500,
+    color:"#b388e4", dark:"#6f4cb0", ribbon:"#ffd34d", knot:"#a37000",
+    tagline:"Better odds, fancier finds", glow:"#e7d4ff",
+    rates:{ common:0.45, rare:0.40, epic:0.13, legendary:0.02 }
+  },
+  {
+    id:"golden", name:"Lucky Golden Box", price:1500,
+    color:"#ffd457", dark:"#a37000", ribbon:"#ff5e8e", knot:"#a14444",
+    tagline:"Legendary chance", glow:"#fff3a8",
+    rates:{ common:0.10, rare:0.30, epic:0.40, legendary:0.20 }
+  }
+];
+function rollBox(box){
+  const r = Math.random();
+  let acc = 0, rarity = "common";
+  for(const k of ["common","rare","epic","legendary"]){
+    acc += box.rates[k] || 0;
+    if(r <= acc){ rarity = k; break; }
+  }
+  let pool = CHARACTERS.filter(c=>c.rarity===rarity);
+  if(pool.length===0){
+    // graceful fallback if no character of that rarity
+    for(const k of ["epic","rare","common","legendary"]){
+      pool = CHARACTERS.filter(c=>c.rarity===k);
+      if(pool.length) break;
+    }
+  }
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+// ---------- Levels ----------
+// Levels are described by an array of "blocks". Each block:
+//   {type:"ground"|"platform"|"bamboo", x, y, w, h}
+//   {type:"coin", x, y, hidden?:bool}
+//   {type:"enemy", kind:"chopstick"|"chili"|"soy"|"steam", x, y, w?, h?, range?}
+//   {type:"goal", x, y}
+// World gravity scales to feel bouncy.
+
+const LEVELS = [
+  { // 1: Bamboo Steamer Village
+    name:"Bamboo Steamer Village",
+    theme:"village",
+    width: 4800,
+    spawn:{x:120,y:560},
+    blocks:[
+      {type:"ground", x:0,    y:760, w:1200, h:140},
+      {type:"ground", x:1320, y:760, w:520,  h:140},
+      {type:"ground", x:1980, y:760, w:520,  h:140},
+      {type:"ground", x:2640, y:760, w:380,  h:140},
+      {type:"ground", x:3160, y:760, w:1640, h:140},
+      {type:"bamboo", x:520,  y:620, w:160, h:36},
+      {type:"bamboo", x:760,  y:540, w:160, h:36},
+      {type:"bamboo", x:980,  y:460, w:160, h:36},
+      {type:"bamboo", x:1240, y:540, w:120, h:36},
+      {type:"bamboo", x:1500, y:600, w:200, h:36},
+      {type:"bamboo", x:1850, y:520, w:160, h:36},
+      {type:"bamboo", x:2150, y:600, w:160, h:36},
+      {type:"bamboo", x:2400, y:520, w:160, h:36},
+      {type:"bamboo", x:2680, y:600, w:160, h:36},
+      {type:"bamboo", x:2980, y:520, w:160, h:36},
+      {type:"bamboo", x:3260, y:600, w:160, h:36},
+      {type:"bamboo", x:3520, y:520, w:160, h:36},
+      {type:"bamboo", x:3780, y:440, w:160, h:36},
+      // coins
+      {type:"coin", x:300, y:680},
+      {type:"coin", x:400, y:680},
+      {type:"coin", x:560, y:560},
+      {type:"coin", x:640, y:560},
+      {type:"coin", x:800, y:480},
+      {type:"coin", x:1020, y:400},
+      {type:"coin", x:1100, y:400},
+      {type:"coin", x:1280, y:480},
+      {type:"coin", x:1560, y:540},
+      {type:"coin", x:1890, y:460},
+      {type:"coin", x:2200, y:540},
+      {type:"coin", x:2440, y:460},
+      {type:"coin", x:2720, y:540},
+      {type:"coin", x:3020, y:460},
+      {type:"coin", x:3300, y:540},
+      {type:"coin", x:3580, y:460},
+      {type:"coin", x:3820, y:380, hidden:true}, // hidden bonus
+      {type:"coin", x:3860, y:380, hidden:true},
+      {type:"coin", x:3900, y:380, hidden:true},
+      {type:"coin", x:4080, y:680},
+      {type:"coin", x:4180, y:680},
+      {type:"coin", x:4280, y:680},
+      // enemies
+      {type:"enemy", kind:"chopstick", x:600, y:720, range:260},
+      {type:"enemy", kind:"chili",     x:1500, y:704, range:140},
+      {type:"enemy", kind:"soy",       x:2200, y:520},
+      {type:"enemy", kind:"chopstick", x:2900, y:720, range:260},
+      {type:"enemy", kind:"steam",     x:3400, y:660},
+      {type:"goal", x:4660, y:680}
+    ]
+  },
+  { // 2: Candy Cloud Kitchen
+    name:"Candy Cloud Kitchen",
+    theme:"candy",
+    width:5200,
+    spawn:{x:120,y:560},
+    blocks:[
+      {type:"ground", x:0, y:760, w:780, h:140},
+      {type:"ground", x:900, y:760, w:280, h:140},
+      {type:"ground", x:1300, y:760, w:240, h:140},
+      {type:"ground", x:1660, y:760, w:240, h:140},
+      {type:"ground", x:2020, y:760, w:240, h:140},
+      {type:"ground", x:2380, y:760, w:1480, h:140},
+      {type:"ground", x:4000, y:760, w:1200, h:140},
+      {type:"bamboo", x:400, y:620, w:180, h:36},
+      {type:"bamboo", x:660, y:520, w:180, h:36},
+      {type:"bamboo", x:920, y:440, w:180, h:36},
+      {type:"bamboo", x:1180, y:520, w:140, h:36},
+      {type:"bamboo", x:1400, y:620, w:140, h:36},
+      {type:"bamboo", x:1620, y:520, w:140, h:36},
+      {type:"bamboo", x:1840, y:420, w:140, h:36},
+      {type:"bamboo", x:2060, y:520, w:140, h:36},
+      {type:"bamboo", x:2280, y:420, w:140, h:36},
+      {type:"bamboo", x:2520, y:520, w:140, h:36},
+      {type:"bamboo", x:2740, y:420, w:140, h:36},
+      {type:"bamboo", x:2960, y:520, w:140, h:36},
+      {type:"bamboo", x:3180, y:420, w:140, h:36},
+      {type:"bamboo", x:3420, y:540, w:160, h:36},
+      {type:"bamboo", x:3680, y:440, w:160, h:36},
+      {type:"bamboo", x:3940, y:340, w:160, h:36},
+      {type:"bamboo", x:4220, y:440, w:160, h:36},
+      {type:"bamboo", x:4480, y:540, w:160, h:36},
+      // coins
+      ...spreadCoins([300,700,400,700,500,700,720,560,980,380,1180,460,1400,560,1620,460,1840,360,2060,460,2280,360,2520,460,2740,360,2960,460,3180,360]),
+      // hidden coin cluster
+      {type:"coin", x:3960, y:280, hidden:true},
+      {type:"coin", x:4000, y:280, hidden:true},
+      {type:"coin", x:4040, y:280, hidden:true},
+      {type:"coin", x:4080, y:280, hidden:true},
+      // enemies
+      {type:"enemy", kind:"chopstick", x:1340, y:720, range:180},
+      {type:"enemy", kind:"chopstick", x:2440, y:720, range:300},
+      {type:"enemy", kind:"chili",     x:3200, y:704, range:220},
+      {type:"enemy", kind:"soy",       x:1900, y:380},
+      {type:"enemy", kind:"soy",       x:2740, y:380},
+      {type:"enemy", kind:"steam",     x:3600, y:660},
+      {type:"enemy", kind:"chili",     x:4300, y:704, range:280},
+      {type:"goal", x:5080, y:680}
+    ]
+  },
+  { // 3: Golden Dumpling Temple
+    name:"Golden Dumpling Temple",
+    theme:"temple",
+    width:5600,
+    spawn:{x:120,y:560},
+    blocks:[
+      {type:"ground", x:0, y:760, w:600, h:140},
+      {type:"ground", x:740, y:760, w:240, h:140},
+      {type:"ground", x:1100, y:760, w:240, h:140},
+      {type:"ground", x:1460, y:760, w:240, h:140},
+      {type:"ground", x:1820, y:760, w:200, h:140},
+      {type:"ground", x:2140, y:760, w:200, h:140},
+      {type:"ground", x:2460, y:760, w:1300, h:140},
+      {type:"ground", x:3900, y:760, w:1700, h:140},
+      {type:"bamboo", x:320, y:620, w:160, h:36},
+      {type:"bamboo", x:560, y:520, w:120, h:36},
+      {type:"bamboo", x:760, y:440, w:120, h:36},
+      {type:"bamboo", x:980, y:520, w:120, h:36},
+      {type:"bamboo", x:1180, y:440, w:120, h:36},
+      {type:"bamboo", x:1380, y:520, w:120, h:36},
+      {type:"bamboo", x:1580, y:440, w:120, h:36},
+      {type:"bamboo", x:1780, y:520, w:120, h:36},
+      {type:"bamboo", x:1980, y:440, w:120, h:36},
+      {type:"bamboo", x:2180, y:520, w:120, h:36},
+      {type:"bamboo", x:2380, y:420, w:140, h:36},
+      {type:"bamboo", x:2620, y:540, w:160, h:36},
+      {type:"bamboo", x:2860, y:440, w:160, h:36},
+      {type:"bamboo", x:3100, y:340, w:160, h:36},
+      {type:"bamboo", x:3360, y:440, w:160, h:36},
+      {type:"bamboo", x:3620, y:540, w:160, h:36},
+      {type:"bamboo", x:3900, y:440, w:160, h:36},
+      {type:"bamboo", x:4180, y:340, w:160, h:36},
+      {type:"bamboo", x:4460, y:240, w:160, h:36},
+      {type:"bamboo", x:4720, y:340, w:160, h:36},
+      {type:"bamboo", x:4980, y:440, w:160, h:36},
+      // coins along the climb
+      ...spreadCoins([200,680,360,560,600,460,800,380,1020,460,1220,380,1420,460,1620,380,1820,460,2020,380,2220,460,2420,360,2660,480,2900,380,3140,280,3400,380,3660,480,3940,380,4220,280,4500,180,4760,280,5020,380]),
+      // hidden golden bonus near top
+      {type:"coin", x:4480, y:170, hidden:true, golden:true},
+      {type:"coin", x:4520, y:170, hidden:true},
+      {type:"coin", x:4560, y:170, hidden:true},
+      // enemies
+      {type:"enemy", kind:"chili",     x:1000, y:704, range:200},
+      {type:"enemy", kind:"chili",     x:1700, y:704, range:200},
+      {type:"enemy", kind:"chopstick", x:2700, y:720, range:280},
+      {type:"enemy", kind:"soy",       x:3100, y:300},
+      {type:"enemy", kind:"soy",       x:3700, y:500},
+      {type:"enemy", kind:"steam",     x:4400, y:200},
+      {type:"enemy", kind:"chopstick", x:5050, y:720, range:280},
+      {type:"goal", x:5460, y:680}
+    ]
+  }
+];
+function spreadCoins(pairs){
+  const out=[];
+  for(let i=0;i<pairs.length;i+=2){
+    out.push({type:"coin", x:pairs[i], y:pairs[i+1]});
+  }
+  return out;
+}
+
+// ---------- World/Physics ----------
+const GRAVITY = 1900;     // px/s^2
+const MOVE_SPEED = 480;
+const JUMP_VEL = 800;
+const DOUBLE_JUMP_VEL = 640;
+const MAX_FALL = 1600;
+const AIR_ACCEL = 2400;
+const GROUND_ACCEL = 4200;
+const FRICTION = 3000;
+
+// ---------- Input ----------
+const keys = { left:false, right:false, jump:false, jumpQueued:false };
+let prevJump=false;
+function setupInput(){
+  addEventListener("keydown", e=>{
+    if(["ArrowLeft","KeyA"].includes(e.code)) keys.left = true;
+    if(["ArrowRight","KeyD"].includes(e.code)) keys.right = true;
+    if(["Space","ArrowUp","KeyW"].includes(e.code)) { keys.jump = true; keys.jumpQueued = true; e.preventDefault(); }
+    if(e.code==="Escape"){ togglePause(); }
+  });
+  addEventListener("keyup", e=>{
+    if(["ArrowLeft","KeyA"].includes(e.code)) keys.left = false;
+    if(["ArrowRight","KeyD"].includes(e.code)) keys.right = false;
+    if(["Space","ArrowUp","KeyW"].includes(e.code)) keys.jump = false;
+  });
+
+  // Touch
+  const touch = document.getElementById("touch");
+  const hasTouch = matchMedia("(pointer:coarse)").matches || ("ontouchstart" in window);
+  if(hasTouch) touch.classList.add("show");
+  function bind(id, on, off){
+    const el = document.getElementById(id);
+    const start = e=>{ e.preventDefault(); on(); };
+    const end = e=>{ e.preventDefault(); off(); };
+    el.addEventListener("touchstart", start, {passive:false});
+    el.addEventListener("touchend", end);
+    el.addEventListener("touchcancel", end);
+    el.addEventListener("mousedown", start);
+    el.addEventListener("mouseup", end);
+    el.addEventListener("mouseleave", end);
+  }
+  bind("tLeft", ()=>{keys.left=true;},()=>{keys.left=false;});
+  bind("tRight",()=>{keys.right=true;},()=>{keys.right=false;});
+  bind("tJump", ()=>{keys.jump=true; keys.jumpQueued=true;}, ()=>{keys.jump=false;});
+}
+
+// ---------- Audio ----------
+let audioCtx=null;
+function ensureAudio(){
+  if(!audioCtx){
+    try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
+  }
+}
+function beep(freq=660, dur=0.12, type="sine", vol=0.06){
+  if(!SAVE.sound || !audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.value = freq;
+  g.gain.value = vol;
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start();
+  o.stop(audioCtx.currentTime+dur+0.02);
+}
+function chord(notes, gap=0.06, dur=0.14, type="triangle", vol=0.05){
+  notes.forEach((f,i)=>setTimeout(()=>beep(f,dur,type,vol), i*gap*1000));
+}
+const SFX = {
+  coin(){ chord([880,1320],0.05,0.09,"triangle",0.05); },
+  goldCoin(){ chord([880,1175,1568],0.05,0.12,"triangle",0.06); },
+  jump(){ beep(540,0.10,"square",0.04); },
+  doubleJump(){ chord([720,960],0.05,0.08,"square",0.04); },
+  hurt(){ beep(180,0.18,"sawtooth",0.06); },
+  bop(){ chord([520,780],0.04,0.08,"square",0.05); },
+  win(){ chord([523,659,784,1046],0.09,0.18,"triangle",0.07); },
+  purchase(){ chord([660,880,1320],0.06,0.12,"triangle",0.06); },
+  reveal(){ chord([660,880,1100,1320,1760],0.08,0.18,"triangle",0.07); },
+  click(){ beep(900,0.04,"sine",0.03); }
+};
+
+// ---------- Drawing helpers ----------
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function drawCloud(c, x, y, s, alpha=1){
+  c.save();
+  c.globalAlpha = alpha;
+  c.fillStyle = "#ffffff";
+  const r = 30*s;
+  c.beginPath();
+  c.arc(x,y,r,0,Math.PI*2);
+  c.arc(x+r*0.9, y+8*s, r*0.85, 0, Math.PI*2);
+  c.arc(x-r*0.9, y+10*s, r*0.8, 0, Math.PI*2);
+  c.arc(x+r*0.2, y-r*0.7, r*0.75, 0, Math.PI*2);
+  c.fill();
+  c.restore();
+}
+
+function getCharacterById(id){ return CHARACTERS.find(c=>c.id===id) || CHARACTERS[0]; }
+function getById(cat,id){ return CATALOG[cat].find(x=>x.id===id); }
+
+// Procedural dumpling drawing
+function drawDumpling(c, char, x, y, size, opts={}){
+  const t = opts.time||0;
+  const facing = opts.facing||1;
+  const squash = opts.squash||1; // <1 squash; >1 stretch
+  const stretch = opts.stretch||1;
+  const happy = opts.happy||1; // for closed eyes etc.
+  const w = size*squash;
+  const h = size*stretch;
+
+  // rainbow body uses gradient
+  c.save();
+  c.translate(x,y);
+  // soft shadow
+  c.save();
+  c.globalAlpha = 0.18;
+  c.fillStyle="#4a2b3a";
+  c.beginPath(); c.ellipse(0, h*0.55, w*0.55, h*0.12, 0, 0, Math.PI*2); c.fill();
+  c.restore();
+
+  // Body
+  let bodyFill;
+  if(char.body==="rainbow"){
+    const g = c.createLinearGradient(-w/2,-h/2,w/2,h/2);
+    g.addColorStop(0,"#ffbac8");
+    g.addColorStop(0.25,"#ffd9a8");
+    g.addColorStop(0.5,"#fff6a8");
+    g.addColorStop(0.75,"#b7e5b6");
+    g.addColorStop(1,"#bdd6ff");
+    bodyFill = g;
+  } else {
+    const g = c.createRadialGradient(-w*0.15,-h*0.2,w*0.1, 0,0, w*0.7);
+    g.addColorStop(0, lighten(char.body, 0.08));
+    g.addColorStop(0.55, char.body);
+    g.addColorStop(1, char.body2);
+    bodyFill = g;
+  }
+  c.fillStyle = bodyFill;
+
+  // soft dumpling pleats (top)
+  c.beginPath();
+  c.ellipse(0,0, w*0.5, h*0.46, 0, 0, Math.PI*2);
+  c.fill();
+
+  // top pleats — little arcs across the top
+  c.save();
+  c.beginPath();
+  c.ellipse(0,0, w*0.5, h*0.46, 0, 0, Math.PI*2);
+  c.clip();
+  const pleatColor = darken(typeof char.body==="string" && char.body!=="rainbow" ? char.body : "#ffc9d2", 0.10);
+  c.strokeStyle = pleatColor;
+  c.lineWidth = Math.max(2, size*0.025);
+  c.lineCap = "round";
+  for(let i=0;i<5;i++){
+    const px = -w*0.32 + i*(w*0.16);
+    c.beginPath();
+    c.moveTo(px, -h*0.34);
+    c.bezierCurveTo(px+w*0.04, -h*0.20, px-w*0.04, -h*0.16, px, -h*0.06);
+    c.stroke();
+  }
+  // glossy highlight
+  c.fillStyle = "rgba(255,255,255,0.55)";
+  c.beginPath();
+  c.ellipse(-w*0.18, -h*0.18, w*0.18, h*0.10, -0.4, 0, Math.PI*2);
+  c.fill();
+  c.restore();
+
+  // shine for shiny/sparkle dumplings
+  if(char.shiny){
+    c.save();
+    c.globalAlpha = 0.35 + 0.25*Math.sin(t*5);
+    c.fillStyle = "#fff";
+    c.beginPath();
+    c.ellipse(w*0.22, -h*0.10, w*0.08, h*0.04, 0.7, 0, Math.PI*2);
+    c.fill();
+    c.restore();
+  }
+
+  // cheeks
+  c.fillStyle = char.cheek;
+  c.beginPath();
+  c.ellipse(-w*0.22*facing, h*0.10, w*0.08, h*0.05, 0, 0, Math.PI*2);
+  c.ellipse( w*0.22*facing, h*0.10, w*0.08, h*0.05, 0, 0, Math.PI*2);
+  c.fill();
+
+  // eyes
+  const eyeY = -h*0.02;
+  const eyeOff = w*0.14;
+  const eyeR = w*0.06;
+  c.fillStyle = char.eye;
+  if(char.face==="wink" && Math.floor(t*1.2)%4===0){
+    // wink right
+    c.beginPath(); c.arc(-eyeOff*facing, eyeY, eyeR, 0, Math.PI*2); c.fill();
+    c.strokeStyle = char.eye;
+    c.lineWidth = Math.max(2,size*0.02);
+    c.beginPath();
+    c.moveTo(eyeOff*facing - eyeR, eyeY);
+    c.quadraticCurveTo(eyeOff*facing, eyeY+eyeR*0.6, eyeOff*facing + eyeR, eyeY);
+    c.stroke();
+  } else {
+    c.beginPath();
+    c.arc(-eyeOff*facing, eyeY, eyeR, 0, Math.PI*2);
+    c.arc( eyeOff*facing, eyeY, eyeR, 0, Math.PI*2);
+    c.fill();
+    // sparkle in eye
+    c.fillStyle="#fff";
+    c.beginPath();
+    c.arc(-eyeOff*facing + eyeR*0.35, eyeY - eyeR*0.35, eyeR*0.35, 0, Math.PI*2);
+    c.arc( eyeOff*facing + eyeR*0.35, eyeY - eyeR*0.35, eyeR*0.35, 0, Math.PI*2);
+    c.fill();
+  }
+
+  // mouth
+  c.strokeStyle = darken(char.body!=="rainbow"?char.body:"#ff7aa2", 0.30);
+  c.lineWidth = Math.max(2,size*0.022);
+  c.lineCap = "round";
+  c.beginPath();
+  if(char.face==="calm"){
+    c.moveTo(-w*0.06, h*0.15);
+    c.lineTo( w*0.06, h*0.15);
+  } else if(char.face==="smile"){
+    c.moveTo(-w*0.07, h*0.13);
+    c.quadraticCurveTo(0, h*0.20, w*0.07, h*0.13);
+  } else if(char.face==="sparkle"){
+    c.moveTo(-w*0.07, h*0.14);
+    c.quadraticCurveTo(0, h*0.22, w*0.07, h*0.14);
+  } else {
+    // normal little smile
+    c.moveTo(-w*0.06, h*0.14);
+    c.quadraticCurveTo(0, h*0.19, w*0.06, h*0.14);
+  }
+  c.stroke();
+
+  // little star on purple/star dumpling
+  if(char.star){
+    drawStar(c, w*0.30, -h*0.30, w*0.06, "#fff7a0", "#e7c84a");
+  }
+  // sparkles around shiny/rainbow
+  if(char.sparkle){
+    const n = char.rainbow?5:3;
+    for(let i=0;i<n;i++){
+      const a = t*1.5 + i*(Math.PI*2/n);
+      const sx = Math.cos(a)*w*0.62;
+      const sy = Math.sin(a)*h*0.55;
+      drawSparkle(c, sx, sy, w*0.06 + Math.sin(t*4+i)*w*0.01);
+    }
+  }
+
+  c.restore();
+}
+
+function drawStar(c, x, y, r, fill, stroke){
+  c.save();
+  c.translate(x,y);
+  c.beginPath();
+  for(let i=0;i<5;i++){
+    const a = -Math.PI/2 + i*(Math.PI*2/5);
+    const a2 = a + Math.PI/5;
+    c.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+    c.lineTo(Math.cos(a2)*r*0.45, Math.sin(a2)*r*0.45);
+  }
+  c.closePath();
+  c.fillStyle = fill;
+  c.fill();
+  if(stroke){ c.strokeStyle = stroke; c.lineWidth = Math.max(1,r*0.18); c.stroke(); }
+  c.restore();
+}
+function drawSparkle(c, x, y, s){
+  c.save();
+  c.translate(x,y);
+  c.fillStyle = "#fff7a8";
+  c.strokeStyle = "#ffd34d";
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(0,-s);
+  c.quadraticCurveTo(0.2*s,0,s,0);
+  c.quadraticCurveTo(0.2*s,0,0,s);
+  c.quadraticCurveTo(-0.2*s,0,-s,0);
+  c.quadraticCurveTo(-0.2*s,0,0,-s);
+  c.closePath();
+  c.fill(); c.stroke();
+  c.restore();
+}
+
+// Hats render
+function drawHat(c, hatId, x, y, size, facing){
+  const h = HATS.find(x=>x.id===hatId);
+  if(!h) return;
+  c.save();
+  c.translate(x,y);
+  if(h.render==="chef"){
+    c.fillStyle="#fff";
+    c.strokeStyle="#e7d6c8"; c.lineWidth=2;
+    c.beginPath();
+    c.ellipse(0,0,size*0.30, size*0.13, 0,0,Math.PI*2);
+    c.fill(); c.stroke();
+    c.beginPath();
+    c.arc(-size*0.18,-size*0.10,size*0.13,0,Math.PI*2);
+    c.arc( size*0.00,-size*0.16,size*0.18,0,Math.PI*2);
+    c.arc( size*0.18,-size*0.10,size*0.13,0,Math.PI*2);
+    c.fill(); c.stroke();
+  } else if(h.render==="bow"){
+    c.fillStyle="#ff8db0"; c.strokeStyle="#ff5e8e"; c.lineWidth=2;
+    c.beginPath(); c.ellipse(-size*0.16, -size*0.04, size*0.14, size*0.10, -0.5, 0, Math.PI*2); c.fill(); c.stroke();
+    c.beginPath(); c.ellipse( size*0.16, -size*0.04, size*0.14, size*0.10,  0.5, 0, Math.PI*2); c.fill(); c.stroke();
+    c.beginPath(); c.arc(0,-size*0.04,size*0.05,0,Math.PI*2); c.fill(); c.stroke();
+  } else if(h.render==="crown"){
+    c.fillStyle="#ffd457"; c.strokeStyle="#a37000"; c.lineWidth=2;
+    c.beginPath();
+    c.moveTo(-size*0.24, -size*0.02);
+    c.lineTo(-size*0.18,-size*0.18);
+    c.lineTo(-size*0.06,-size*0.06);
+    c.lineTo( 0       ,-size*0.20);
+    c.lineTo( size*0.06,-size*0.06);
+    c.lineTo( size*0.18,-size*0.18);
+    c.lineTo( size*0.24,-size*0.02);
+    c.closePath(); c.fill(); c.stroke();
+    c.fillStyle="#ff8db0";
+    c.beginPath(); c.arc(0,-size*0.08, size*0.03,0,Math.PI*2); c.fill();
+  } else if(h.render==="flower"){
+    c.fillStyle="#ffd6ea"; c.strokeStyle="#ff8db0"; c.lineWidth=2;
+    for(let i=0;i<5;i++){
+      const a = -Math.PI/2 + i*(Math.PI*2/5);
+      c.beginPath();
+      c.ellipse(Math.cos(a)*size*0.10, -size*0.08+Math.sin(a)*size*0.06, size*0.06, size*0.05, a, 0, Math.PI*2);
+      c.fill(); c.stroke();
+    }
+    c.fillStyle="#ffd34d";
+    c.beginPath(); c.arc(0,-size*0.08, size*0.04,0,Math.PI*2); c.fill();
+  } else if(h.render==="star"){
+    drawStar(c, 0, -size*0.10, size*0.14, "#fff7a8", "#e6a700");
+  }
+  c.restore();
+}
+
+// Bamboo steamer basket platform
+function drawBamboo(c, x, y, w, h, color="#d6a667", dark="#a87538"){
+  c.save();
+  // weave
+  c.fillStyle = color;
+  roundRect(x, y, w, h, h*0.4); c.fill();
+  c.strokeStyle = dark; c.lineWidth = 2;
+  roundRect(x, y, w, h, h*0.4); c.stroke();
+  // weave lines
+  c.save();
+  c.beginPath(); roundRect(x, y, w, h, h*0.4); c.clip();
+  c.strokeStyle = dark;
+  c.lineWidth = 2;
+  const step = h*0.55;
+  for(let i=x-h; i<x+w+h; i+=step){
+    c.beginPath();
+    c.moveTo(i, y);
+    c.lineTo(i+h, y+h);
+    c.stroke();
+  }
+  for(let i=x+w+h; i>x-h; i-=step){
+    c.beginPath();
+    c.moveTo(i, y);
+    c.lineTo(i-h, y+h);
+    c.stroke();
+  }
+  c.restore();
+  // top rim
+  c.fillStyle = lighten(color, 0.10);
+  roundRect(x, y, w, Math.max(4,h*0.18), h*0.4);
+  c.fill();
+  c.restore();
+}
+// Mystery box drawing — uses bamboo-steamer style with a ribbon + bow
+function drawBoxClosed(c, x, y, size, box, t=0, shakeAmt=0){
+  c.save();
+  c.translate(x,y);
+  const sx = (Math.random()-0.5)*shakeAmt;
+  const sy = (Math.random()-0.5)*shakeAmt;
+  c.translate(sx, sy);
+  const w = size, h = size*0.85;
+  // shadow
+  c.fillStyle="rgba(0,0,0,0.18)";
+  c.beginPath(); c.ellipse(0, h/2+10, w*0.5, 9, 0, 0, Math.PI*2); c.fill();
+  // basket bottom
+  drawBamboo(c, -w/2, -h/8, w, h*0.50, box.color, box.dark);
+  // lid (slightly wider, sitting on top)
+  drawBamboo(c, -w/2*1.04, -h/2, w*1.04, h*0.20, lighten(box.color, 0.10), box.dark);
+  // ribbon vertical
+  c.fillStyle = box.ribbon;
+  c.fillRect(-5, -h/2, 10, h*0.60);
+  // ribbon horizontal (lid)
+  c.fillRect(-w/2*1.04, -h/2 + h*0.05, w*1.04, 8);
+  // bow on top
+  c.save();
+  c.translate(0, -h/2 - 2);
+  c.fillStyle = box.ribbon;
+  c.strokeStyle = box.knot; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(-14, 0, 14, 9, -0.4, 0, Math.PI*2); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse( 14, 0, 14, 9,  0.4, 0, Math.PI*2); c.fill(); c.stroke();
+  c.fillStyle = box.knot;
+  c.beginPath(); c.arc(0, 0, 6, 0, Math.PI*2); c.fill();
+  c.restore();
+  // sparkle on lid
+  if(t>0){
+    c.save();
+    c.globalAlpha = 0.5 + 0.4*Math.sin(t*5);
+    drawSparkle(c, w*0.30, -h*0.35, 7);
+    c.globalAlpha = 0.5 + 0.4*Math.sin(t*5+1.5);
+    drawSparkle(c, -w*0.28, -h*0.30, 6);
+    c.restore();
+  }
+  c.restore();
+}
+function drawBoxOpenBottom(c, x, y, size, box){
+  c.save();
+  c.translate(x,y);
+  const w = size, h = size*0.85;
+  // shadow
+  c.fillStyle="rgba(0,0,0,0.18)";
+  c.beginPath(); c.ellipse(0, h/2+10, w*0.5, 9, 0, 0, Math.PI*2); c.fill();
+  // basket bottom
+  drawBamboo(c, -w/2, -h/8, w, h*0.50, box.color, box.dark);
+  // dark interior rim
+  c.fillStyle = "rgba(0,0,0,0.30)";
+  c.beginPath(); c.ellipse(0, -h/8 + 4, w*0.43, 8, 0, 0, Math.PI*2); c.fill();
+  // rim highlight
+  c.strokeStyle = lighten(box.color, 0.25); c.lineWidth = 3;
+  c.beginPath(); c.ellipse(0, -h/8, w*0.43, 8, 0, 0, Math.PI*2); c.stroke();
+  c.restore();
+}
+function drawBoxLid(c, x, y, size, box, spin=0){
+  c.save();
+  c.translate(x,y);
+  c.rotate(spin);
+  const w = size*1.04, h = size*0.85*0.20;
+  drawBamboo(c, -w/2, -h/2, w, h, lighten(box.color, 0.10), box.dark);
+  // ribbon
+  c.fillStyle = box.ribbon;
+  c.fillRect(-w/2, -4, w, 8);
+  c.fillRect(-5, -h/2, 10, h);
+  // bow
+  c.fillStyle = box.ribbon;
+  c.strokeStyle = box.knot; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(-14, -h/2 + 2, 14, 9, -0.4, 0, Math.PI*2); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse( 14, -h/2 + 2, 14, 9,  0.4, 0, Math.PI*2); c.fill(); c.stroke();
+  c.fillStyle = box.knot;
+  c.beginPath(); c.arc(0, -h/2 + 2, 6, 0, Math.PI*2); c.fill();
+  c.restore();
+}
+// Used in shop card previews
+function drawBoxPreview(c, box, size){
+  c.clearRect(0,0,size,size);
+  // background glow
+  const g = c.createRadialGradient(size/2, size/2, 10, size/2, size/2, size/2);
+  g.addColorStop(0, box.glow);
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  c.fillStyle = g;
+  c.fillRect(0,0,size,size);
+  drawBoxClosed(c, size/2, size/2+size*0.05, size*0.55, box, performance.now()/1000);
+  // floating sparkles
+  for(let i=0;i<5;i++){
+    const a = performance.now()/600 + i;
+    const x = size/2 + Math.cos(a)*size*0.28;
+    const y = size*0.4 + Math.sin(a*1.3)*size*0.10;
+    drawSparkle(c, x, y, 6);
+  }
+}
+
+// Ground (grassy/candy) tile
+function drawGround(c, x, y, w, h, theme){
+  // top grass/candy strip
+  let top1="#caf2a6", top2="#9fd87c", body="#b58a52", body2="#8c5e2e";
+  if(theme==="candy"){ top1="#ffcfe0"; top2="#ff9ec0"; body="#fff0f6"; body2="#ffd0de"; }
+  if(theme==="temple"){ top1="#ffe79c"; top2="#ffc847"; body="#c9a26a"; body2="#8c6a3e"; }
+  if(theme==="skyland"){ top1="#cfeaff"; top2="#9ecbf0"; body="#b9d6ee"; body2="#7aa6c8"; }
+  if(theme==="market"){ top1="#6b5fa1"; top2="#46396e"; body="#2e2747"; body2="#1a1530"; }
+  c.save();
+  // body
+  const g = c.createLinearGradient(0,y,0,y+h);
+  g.addColorStop(0,body); g.addColorStop(1,body2);
+  c.fillStyle = g;
+  c.fillRect(x,y+16,w,h-16);
+  // top strip
+  const g2 = c.createLinearGradient(0,y,0,y+22);
+  g2.addColorStop(0,top1); g2.addColorStop(1,top2);
+  c.fillStyle = g2;
+  c.fillRect(x,y,w,22);
+  // wavy top edge
+  c.fillStyle = top1;
+  c.beginPath();
+  c.moveTo(x,y);
+  for(let i=0;i<=w;i+=20){
+    c.lineTo(x+i, y - Math.sin(i*0.12)*2 - 1);
+  }
+  c.lineTo(x+w,y); c.closePath();
+  c.fill();
+  c.restore();
+}
+
+// Coin
+function drawCoin(c, x, y, t, golden=false){
+  const s = Math.abs(Math.cos(t*4));
+  const r = 18;
+  c.save();
+  c.translate(x,y);
+  // shadow
+  c.globalAlpha = 0.18;
+  c.fillStyle="#000";
+  c.beginPath(); c.ellipse(0, 18, 10, 3, 0, 0, Math.PI*2); c.fill();
+  c.globalAlpha = 1;
+  // coin face (squashed to fake spin)
+  const w = r * (0.35 + 0.65*s);
+  const grad = c.createRadialGradient(-w*0.4,-r*0.4, 2, 0,0, r*1.1);
+  if(golden){
+    grad.addColorStop(0,"#fff7c0");
+    grad.addColorStop(0.6,"#ffd34d");
+    grad.addColorStop(1,"#a37000");
+  } else {
+    grad.addColorStop(0,"#fff6b8");
+    grad.addColorStop(0.6,"#ffd34d");
+    grad.addColorStop(1,"#c98800");
+  }
+  c.fillStyle = grad;
+  c.strokeStyle = golden?"#8a5500":"#a37000";
+  c.lineWidth = 2.5;
+  c.beginPath(); c.ellipse(0,0, w, r, 0, 0, Math.PI*2); c.fill(); c.stroke();
+  // L symbol
+  if(w > 6){
+    c.fillStyle = "#8a5500";
+    c.font = `900 ${Math.floor(r*1.2)}px Nunito, "Comic Sans MS", sans-serif`;
+    c.textAlign="center"; c.textBaseline="middle";
+    c.scale(w/r, 1);
+    c.fillText("L", 0, 1);
+  }
+  c.restore();
+}
+
+// Enemies
+function drawChopstick(c, x, y, t){
+  // a rolling pair of chopsticks
+  c.save();
+  c.translate(x,y);
+  c.rotate(Math.sin(t*4)*0.2);
+  c.fillStyle="#e8c79a"; c.strokeStyle="#9d6a30"; c.lineWidth=2;
+  roundRect(-28,-10, 56, 8, 4); c.fill(); c.stroke();
+  roundRect(-28, 2, 56, 8, 4); c.fill(); c.stroke();
+  // tip darker
+  c.fillStyle="#9d6a30";
+  c.fillRect(20,-10,8,8); c.fillRect(20,2,8,8);
+  // eyes
+  c.fillStyle="#3a2417";
+  c.beginPath(); c.arc(-10,-12,2.4,0,Math.PI*2); c.arc(-2,-12,2.4,0,Math.PI*2); c.fill();
+  c.restore();
+}
+function drawChili(c, x, y, t){
+  c.save();
+  c.translate(x,y);
+  const bob = Math.sin(t*5)*2;
+  // body
+  c.fillStyle="#ff5a4a";
+  c.strokeStyle="#c4382c"; c.lineWidth=2;
+  c.beginPath();
+  c.moveTo(-22,8+bob);
+  c.quadraticCurveTo(-10,-22+bob, 18,-4+bob);
+  c.quadraticCurveTo(8,18+bob, -22,8+bob);
+  c.closePath(); c.fill(); c.stroke();
+  // stem
+  c.fillStyle="#4eaf6a"; c.beginPath();
+  c.moveTo(14,-6+bob); c.quadraticCurveTo(22,-18+bob,30,-20+bob);
+  c.quadraticCurveTo(22,-10+bob,18,-2+bob); c.fill();
+  // face
+  c.fillStyle="#3a1d18";
+  c.beginPath(); c.arc(-10,-2+bob,2.6,0,Math.PI*2); c.arc(0,-2+bob,2.6,0,Math.PI*2); c.fill();
+  c.strokeStyle="#3a1d18"; c.lineWidth=2;
+  c.beginPath(); c.moveTo(-10,5+bob); c.quadraticCurveTo(-5,9+bob,0,5+bob); c.stroke();
+  c.restore();
+}
+function drawSoy(c, x, y, t){
+  c.save();
+  c.translate(x,y);
+  const w = 22, h = 28;
+  c.fillStyle="#3a2412";
+  c.strokeStyle="#1d1107"; c.lineWidth=2;
+  c.beginPath();
+  c.moveTo(0,-h*0.6);
+  c.bezierCurveTo(w*0.9,-h*0.2, w*0.9,h*0.5, 0,h*0.6);
+  c.bezierCurveTo(-w*0.9,h*0.5, -w*0.9,-h*0.2, 0,-h*0.6);
+  c.fill(); c.stroke();
+  // shine
+  c.fillStyle="rgba(255,255,255,0.5)";
+  c.beginPath();
+  c.ellipse(-w*0.25,-h*0.15, w*0.18, h*0.10, -0.4, 0, Math.PI*2);
+  c.fill();
+  // face
+  c.fillStyle="#fff";
+  c.beginPath(); c.arc(-6,0,3,0,Math.PI*2); c.arc(6,0,3,0,Math.PI*2); c.fill();
+  c.fillStyle="#000";
+  c.beginPath(); c.arc(-6,0,1.5,0,Math.PI*2); c.arc(6,0,1.5,0,Math.PI*2); c.fill();
+  c.restore();
+}
+function drawSteam(c, x, y, t){
+  c.save();
+  c.translate(x,y);
+  const wob = Math.sin(t*3)*3;
+  c.fillStyle="rgba(255,255,255,0.92)";
+  c.strokeStyle="rgba(180,180,200,0.7)";
+  c.lineWidth=2;
+  c.beginPath();
+  c.arc(-10+wob,0,16,0,Math.PI*2);
+  c.arc(8-wob, 4, 14, 0, Math.PI*2);
+  c.arc(0, -10, 14, 0, Math.PI*2);
+  c.fill(); c.stroke();
+  // face
+  c.fillStyle="#7a7a90";
+  c.beginPath(); c.arc(-4,-2,2,0,Math.PI*2); c.arc(6,-2,2,0,Math.PI*2); c.fill();
+  c.restore();
+}
+
+// ---------- Theme backdrops ----------
+function drawBackdrop(theme, t, camX){
+  // sky gradient
+  const sky = ctx.createLinearGradient(0,0,0,VH);
+  if(theme==="village"){ sky.addColorStop(0,"#ffe7f0"); sky.addColorStop(1,"#fff6da"); }
+  else if(theme==="candy"){ sky.addColorStop(0,"#ffdfee"); sky.addColorStop(1,"#fff0c8"); }
+  else if(theme==="temple"){ sky.addColorStop(0,"#fff2c0"); sky.addColorStop(1,"#ffd6a3"); }
+  else if(theme==="skyland"){ sky.addColorStop(0,"#bfe4ff"); sky.addColorStop(1,"#e9f6ff"); }
+  else if(theme==="market"){ sky.addColorStop(0,"#1f1740"); sky.addColorStop(1,"#3a2a66"); }
+  ctx.fillStyle = sky;
+  ctx.fillRect(0,0,VW,VH);
+
+  // moons/stars for night
+  if(theme==="market"){
+    for(let i=0;i<60;i++){
+      const x = (i*173 + (camX*0.1)) % VW;
+      const y = (i*89)%VH*0.6;
+      ctx.fillStyle = i%7===0?"#fff":"rgba(255,255,255,0.7)";
+      ctx.fillRect(x, y, 2,2);
+    }
+    // moon
+    ctx.fillStyle="#fff6b8";
+    ctx.beginPath(); ctx.arc(VW-200, 160, 60, 0, Math.PI*2); ctx.fill();
+  }
+
+  // far hills
+  ctx.fillStyle = theme==="market"?"#2c2156":"rgba(255,255,255,0.4)";
+  for(let i=0;i<6;i++){
+    const hx = (i*420 - (camX*0.2)%420);
+    drawHill(hx, VH*0.62, 420, 140, theme);
+  }
+
+  // clouds
+  const speed = theme==="market"?0.05:0.1;
+  for(let i=0;i<8;i++){
+    const cx = ((i*340 + t*40*speed*100) % (VW+400)) - 200 - (camX*0.3)%340;
+    const cy = 90 + (i%3)*40;
+    drawCloud(ctx, cx, cy, 1+(i%3)*0.2, theme==="market"?0.55:0.9);
+  }
+
+  // bubble tea pearls
+  if(theme==="skyland"){
+    for(let i=0;i<14;i++){
+      const bx = (i*220 - camX*0.5)%VW;
+      const by = 200 + Math.sin(t+i)*20;
+      ctx.fillStyle="rgba(80,55,40,0.7)";
+      ctx.beginPath(); ctx.arc(bx, by, 12, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  // candy hearts background floaters
+  if(theme==="candy"){
+    for(let i=0;i<10;i++){
+      const bx = ((i*260 - camX*0.4)%(VW+200)) ;
+      const by = 160 + Math.sin(t*1.2+i)*30 + (i%3)*40;
+      drawHeartShape(ctx, bx, by, 14, "#ff9ec0", "#ff7aa2");
+    }
+  }
+  // golden temple sparkles
+  if(theme==="temple"){
+    for(let i=0;i<14;i++){
+      const bx = ((i*240 + Math.sin(t+i)*40 - camX*0.4)%(VW+200));
+      const by = 200 + Math.cos(t*1.5+i)*40 + (i%3)*60;
+      drawSparkle(ctx, bx, by, 9);
+    }
+  }
+}
+function drawHill(x, y, w, h, theme){
+  ctx.beginPath();
+  ctx.moveTo(x, VH);
+  ctx.lineTo(x, y);
+  for(let i=0;i<=w;i+=20){
+    const yy = y + Math.sin(i*0.02)*8 - Math.sin(i*0.005)*h*0.4;
+    ctx.lineTo(x+i, yy);
+  }
+  ctx.lineTo(x+w, VH);
+  ctx.closePath();
+  ctx.fill();
+}
+function drawHeartShape(c,x,y,s,fill,stroke){
+  c.save(); c.translate(x,y);
+  c.fillStyle=fill; c.strokeStyle=stroke; c.lineWidth=1.5;
+  c.beginPath();
+  c.moveTo(0, s*0.9);
+  c.bezierCurveTo(-s*1.4, s*0.2, -s*0.6, -s*1, 0, -s*0.2);
+  c.bezierCurveTo(s*0.6, -s*1, s*1.4, s*0.2, 0, s*0.9);
+  c.closePath();
+  c.fill(); c.stroke();
+  c.restore();
+}
+
+// ---------- Color util ----------
+function hexToRgb(h){
+  h = h.replace("#",""); if(h.length===3) h=h.split("").map(c=>c+c).join("");
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+}
+function rgbToHex(r,g,b){
+  return "#"+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")).join("");
+}
+function lighten(hex, amt){
+  if(typeof hex!=="string"||!hex.startsWith("#")) return "#ffffff";
+  const [r,g,b]=hexToRgb(hex);
+  return rgbToHex(r+(255-r)*amt, g+(255-g)*amt, b+(255-b)*amt);
+}
+function darken(hex, amt){
+  if(typeof hex!=="string"||!hex.startsWith("#")) return "#000000";
+  const [r,g,b]=hexToRgb(hex);
+  return rgbToHex(r*(1-amt), g*(1-amt), b*(1-amt));
+}
+
+// ---------- Game state ----------
+const STATE = { TITLE:"title", PLAY:"play", PAUSE:"pause", LEVELC:"levelc", GAMEOVER:"gameover" };
+let game = {
+  state: STATE.TITLE,
+  levelIdx: 0,
+  time: 0,
+  cam: {x:0,y:0},
+  player:null,
+  blocks:[],
+  coins:[],
+  enemies:[],
+  goal:null,
+  particles:[],
+  trails:[],
+  coinsCollected:0,
+  hidden:0,
+  startedAt:0,
+  shake:0
+};
+
+function newPlayer(spawn){
+  return {
+    x:spawn.x, y:spawn.y,
+    vx:0, vy:0,
+    w:60, h:60,
+    onGround:false,
+    facing:1,
+    hearts:3,
+    invuln:0,
+    squash:1, stretch:1,
+    canDouble:true,
+    coyote:0,
+    jumpHeld:false,
+    deathFlash:0
+  };
+}
+
+function loadLevel(idx){
+  const lv = LEVELS[Math.min(idx, LEVELS.length-1)];
+  game.levelIdx = idx;
+  game.cam.x = 0;
+  game.coins = [];
+  game.enemies = [];
+  game.blocks = [];
+  game.goal = null;
+  game.particles = [];
+  game.trails = [];
+  game.coinsCollected = 0;
+  game.hidden = 0;
+  game.startedAt = performance.now();
+  game.shake = 0;
+  game.player = newPlayer(lv.spawn);
+  for(const b of lv.blocks){
+    if(b.type==="ground" || b.type==="platform"){
+      game.blocks.push({...b, kind:"solid"});
+    } else if(b.type==="bamboo"){
+      game.blocks.push({...b, kind:"bamboo"});
+    } else if(b.type==="coin"){
+      game.coins.push({x:b.x, y:b.y, taken:false, hidden:!!b.hidden, golden:!!b.golden, t:Math.random()*4});
+    } else if(b.type==="enemy"){
+      game.enemies.push(makeEnemy(b));
+    } else if(b.type==="goal"){
+      game.goal = {x:b.x, y:b.y, t:0};
+    }
+  }
+  // set hidden count
+  for(const co of game.coins){ if(co.hidden) game.hidden++; }
+}
+
+function makeEnemy(b){
+  const base = {kind:b.kind, x:b.x, y:b.y, vx:0, vy:0, alive:true, t:Math.random()*4};
+  if(b.kind==="chopstick"){
+    base.w=56; base.h=20; base.range=b.range||220; base.origin=b.x; base.dir=1; base.vx=180;
+  } else if(b.kind==="chili"){
+    base.w=44; base.h=32; base.range=b.range||200; base.origin=b.x; base.dir=1; base.vx=110;
+  } else if(b.kind==="soy"){
+    base.w=30; base.h=42; base.bounce=true; base.vy=-200; base.gx=b.x; base.gy=b.y;
+  } else if(b.kind==="steam"){
+    base.w=44; base.h=44; base.baseY=b.y; base.t = Math.random()*Math.PI*2;
+  }
+  return base;
+}
+
+// ---------- Physics & collision ----------
+function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
+
+function updatePlayer(p, dt){
+  // horizontal input
+  const targetVx = (keys.right?MOVE_SPEED:0) - (keys.left?MOVE_SPEED:0);
+  const accel = p.onGround?GROUND_ACCEL:AIR_ACCEL;
+  if(targetVx > p.vx) p.vx = Math.min(targetVx, p.vx + accel*dt);
+  else if(targetVx < p.vx) p.vx = Math.max(targetVx, p.vx - accel*dt);
+  if(targetVx===0 && p.onGround){
+    if(p.vx>0) p.vx = Math.max(0, p.vx - FRICTION*dt);
+    else p.vx = Math.min(0, p.vx + FRICTION*dt);
+  }
+  if(targetVx!==0) p.facing = targetVx>0?1:-1;
+
+  // jump (with small coyote time and queued jump)
+  p.coyote = p.onGround ? 0.12 : Math.max(0, p.coyote - dt);
+  if(keys.jumpQueued){
+    if(p.coyote>0){
+      p.vy = -JUMP_VEL;
+      p.onGround = false;
+      p.canDouble = true;
+      p.squash = 0.7; p.stretch = 1.35;
+      SFX.jump();
+      spawnPuff(p.x+p.w/2, p.y+p.h);
+    } else if(p.canDouble){
+      p.vy = -DOUBLE_JUMP_VEL;
+      p.canDouble = false;
+      p.squash = 0.85; p.stretch = 1.2;
+      SFX.doubleJump();
+      for(let i=0;i<6;i++) spawnPuff(p.x+p.w/2 + (Math.random()-0.5)*30, p.y+p.h, true);
+    }
+    keys.jumpQueued = false;
+  }
+  // jump-cut: if released early, dampen upward velocity
+  if(!keys.jump && p.vy<0) p.vy *= 0.92;
+
+  // gravity
+  p.vy += GRAVITY*dt;
+  if(p.vy > MAX_FALL) p.vy = MAX_FALL;
+
+  // integrate X, resolve
+  p.x += p.vx*dt;
+  for(const b of game.blocks){
+    if(b.kind!=="solid" && b.kind!=="bamboo") continue;
+    if(rectsOverlap(p,b)){
+      if(p.vx>0){ p.x = b.x - p.w; p.vx=0; }
+      else if(p.vx<0){ p.x = b.x + b.w; p.vx=0; }
+    }
+  }
+  // integrate Y, resolve
+  p.y += p.vy*dt;
+  p.onGround = false;
+  for(const b of game.blocks){
+    if(b.kind!=="solid" && b.kind!=="bamboo") continue;
+    if(rectsOverlap(p,b)){
+      if(p.vy>0){
+        p.y = b.y - p.h;
+        if(p.vy>300){ p.squash = 1.25; p.stretch = 0.78; }
+        p.vy = 0;
+        p.onGround = true;
+        p.canDouble = true;
+      } else if(p.vy<0){
+        p.y = b.y + b.h;
+        p.vy = 0;
+      }
+    }
+  }
+
+  // squash spring back
+  p.squash += (1-p.squash)*Math.min(1, dt*12);
+  p.stretch += (1-p.stretch)*Math.min(1, dt*12);
+  if(p.invuln>0) p.invuln -= dt;
+
+  // out of world (fall)
+  if(p.y > VH+400){ damage(p, 99, true); }
+
+  // edges
+  const lv = LEVELS[game.levelIdx];
+  if(p.x<0) p.x=0;
+  if(p.x+p.w>lv.width) p.x = lv.width - p.w;
+
+  // coin pickup
+  for(const co of game.coins){
+    if(co.taken) continue;
+    if(co.hidden && !revealCheck(p, co)) continue;
+    if(Math.hypot(p.x+p.w/2 - co.x, p.y+p.h/2 - co.y) < 36){
+      co.taken = true;
+      const reward = co.golden? 25 : (co.hidden?5:1);
+      SAVE.lafoofoos += reward;
+      game.coinsCollected += reward;
+      saveNow();
+      updateHud();
+      if(co.golden) { SFX.goldCoin(); showToast("Golden Lafoofoo! +25 ✨"); }
+      else SFX.coin();
+      spawnCoinPop(co.x, co.y, reward);
+    }
+  }
+
+  // enemy interactions
+  for(const e of game.enemies){
+    if(!e.alive) continue;
+    const eb = {x:e.x-e.w/2, y:e.y-e.h/2, w:e.w, h:e.h};
+    if(rectsOverlap(p, eb)){
+      const stompable = e.kind!=="steam" && e.kind!=="soy";
+      const fromAbove = (p.y + p.h - 8) < eb.y && p.vy>40;
+      if(stompable && fromAbove){
+        e.alive=false;
+        p.vy = -600;
+        p.canDouble = true;
+        p.squash = 0.7; p.stretch = 1.3;
+        SAVE.lafoofoos += 3;
+        game.coinsCollected += 3;
+        saveNow();
+        updateHud();
+        SFX.bop();
+        spawnPuff(e.x, e.y, true);
+        showToast("Bop! +3 Lafoofoos");
+      } else if(p.invuln<=0){
+        damage(p, 1, false, e);
+      }
+    }
+  }
+
+  // goal
+  if(game.goal){
+    const g = game.goal;
+    if(Math.hypot(p.x+p.w/2 - g.x, p.y+p.h/2 - g.y) < 60){
+      completeLevel();
+    }
+  }
+
+  // trail
+  if(SAVE.equipped.trail){
+    if(Math.random()<0.35 || !p.onGround){
+      game.trails.push({x:p.x+p.w/2, y:p.y+p.h*0.8, life:0.7, max:0.7, kind:SAVE.equipped.trail});
+    }
+  }
+}
+function revealCheck(p, co){
+  // hidden coins reveal when player is close
+  return Math.hypot(p.x+p.w/2 - co.x, p.y+p.h/2 - co.y) < 90;
+}
+function damage(p, amt, fall, e){
+  if(p.invuln>0 && !fall) return;
+  p.hearts -= amt;
+  p.invuln = 1.0;
+  p.vy = -500;
+  if(e){ p.vx = (p.x+p.w/2 < e.x)?-360:360; }
+  SFX.hurt();
+  game.shake = 0.4;
+  showToast("Ouch! -1 ❤");
+  if(p.hearts<=0){
+    setState(STATE.GAMEOVER);
+    document.getElementById("gameOver").classList.add("show");
+  }
+  updateHud();
+}
+
+function updateEnemies(dt){
+  for(const e of game.enemies){
+    if(!e.alive) continue;
+    e.t += dt;
+    if(e.kind==="chopstick"){
+      e.x += e.vx*dt*e.dir;
+      if(e.x > e.origin + e.range){ e.dir=-1; }
+      if(e.x < e.origin - e.range){ e.dir= 1; }
+    } else if(e.kind==="chili"){
+      e.x += e.vx*dt*e.dir;
+      if(e.x > e.origin + e.range){ e.dir=-1; }
+      if(e.x < e.origin - e.range){ e.dir= 1; }
+    } else if(e.kind==="soy"){
+      // bouncing drop
+      e.vy += 1500*dt;
+      e.y += e.vy*dt;
+      if(e.y > e.gy){ e.y = e.gy; e.vy = -560; }
+    } else if(e.kind==="steam"){
+      e.y = e.baseY + Math.sin(e.t*2)*30;
+    }
+  }
+}
+function updateTrails(dt){
+  for(let i=game.trails.length-1;i>=0;i--){
+    const t = game.trails[i];
+    t.life -= dt;
+    if(t.life<=0) game.trails.splice(i,1);
+  }
+}
+function updateParticles(dt){
+  for(let i=game.particles.length-1;i>=0;i--){
+    const p = game.particles[i];
+    p.life -= dt;
+    p.vy += (p.gravity||300)*dt;
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    if(p.life<=0) game.particles.splice(i,1);
+  }
+}
+function spawnPuff(x, y, big=false){
+  const n = big?10:6;
+  for(let i=0;i<n;i++){
+    game.particles.push({
+      x, y,
+      vx:(Math.random()-0.5)*180,
+      vy:-Math.random()*160 - 40,
+      life: 0.5+Math.random()*0.3, max:0.8,
+      r: 6+Math.random()*8,
+      color:"rgba(255,255,255,0.85)",
+      gravity:160
+    });
+  }
+}
+function spawnCoinPop(x,y, amount){
+  for(let i=0;i<8;i++){
+    game.particles.push({
+      x, y,
+      vx:(Math.random()-0.5)*220,
+      vy:-Math.random()*240 - 80,
+      life:0.6+Math.random()*0.3, max:0.9,
+      r: 4+Math.random()*5,
+      color:"#ffd34d", gravity:600
+    });
+  }
+  game.particles.push({
+    x, y, vx:0, vy:-60, life:0.8, max:0.8, r:0, text:`+${amount}`, color:"#a37000"
+  });
+}
+
+function updateCamera(){
+  const p = game.player;
+  const lv = LEVELS[game.levelIdx];
+  const target = p.x + p.w/2 - VW/2 + Math.sign(p.vx)*120;
+  game.cam.x += (target - game.cam.x)*0.12;
+  game.cam.x = Math.max(0, Math.min(lv.width - VW, game.cam.x));
+}
+
+// ---------- Render ----------
+function render(){
+  const lv = LEVELS[game.levelIdx];
+  const theme = lv.theme;
+
+  // shake
+  let shx=0, shy=0;
+  if(game.shake>0){
+    shx = (Math.random()-0.5)*game.shake*30;
+    shy = (Math.random()-0.5)*game.shake*30;
+    game.shake = Math.max(0, game.shake - 0.04);
+  }
+
+  drawBackdrop(theme, game.time, game.cam.x);
+
+  ctx.save();
+  ctx.translate(-game.cam.x + shx, shy);
+
+  // platforms
+  for(const b of game.blocks){
+    if(b.kind==="solid"){
+      drawGround(ctx, b.x, b.y, b.w, b.h, theme);
+    } else if(b.kind==="bamboo"){
+      const basket = getById("basket", SAVE.equipped.basket) || BASKETS[0];
+      drawBamboo(ctx, b.x, b.y, b.w, b.h, basket.color, basket.dark);
+    }
+  }
+
+  // hidden coin reveal area
+  for(const co of game.coins){
+    if(co.taken) continue;
+    if(co.hidden && !revealCheck(game.player, co)){
+      // tiny shimmer hint
+      ctx.save();
+      ctx.globalAlpha = 0.35 + 0.25*Math.sin(game.time*3+co.x);
+      drawSparkle(ctx, co.x, co.y, 6);
+      ctx.restore();
+      continue;
+    }
+    drawCoin(ctx, co.x, co.y, game.time+co.t, co.golden);
+  }
+
+  // enemies
+  for(const e of game.enemies){
+    if(!e.alive) continue;
+    if(e.kind==="chopstick") drawChopstick(ctx, e.x, e.y, game.time+e.t);
+    else if(e.kind==="chili") drawChili(ctx, e.x, e.y, game.time+e.t);
+    else if(e.kind==="soy")  drawSoy(ctx, e.x, e.y, game.time+e.t);
+    else if(e.kind==="steam") drawSteam(ctx, e.x, e.y, game.time+e.t);
+  }
+
+  // goal
+  if(game.goal){
+    const g = game.goal;
+    g.t += 0.04;
+    // banner pole with little dumpling on top
+    ctx.save();
+    ctx.translate(g.x, g.y);
+    ctx.fillStyle = "#a87538";
+    ctx.fillRect(-5, -160, 10, 180);
+    ctx.fillStyle = "#ff9ec0";
+    ctx.beginPath();
+    ctx.moveTo(0,-150);
+    ctx.lineTo(110 + Math.sin(g.t*0.6)*4, -120);
+    ctx.lineTo(0,-90);
+    ctx.fill();
+    ctx.fillStyle="#fff";
+    ctx.font="900 22px Nunito,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("GOAL", 60, -120);
+    // golden dumpling on top
+    drawDumpling(ctx, getCharacterById("gold"), 0, -200, 40, {time:game.time, facing:1});
+    // glow ring
+    ctx.save();
+    ctx.globalAlpha = 0.4+0.2*Math.sin(game.time*4);
+    ctx.strokeStyle="#ffd34d";
+    ctx.lineWidth=6;
+    ctx.beginPath(); ctx.arc(0,-200,60,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // trails behind player
+  for(const t of game.trails){
+    const a = t.life/t.max;
+    if(t.kind==="sparkle"){
+      ctx.globalAlpha = a;
+      drawSparkle(ctx, t.x, t.y, 8*a);
+      ctx.globalAlpha = 1;
+    } else if(t.kind==="heart"){
+      ctx.globalAlpha = a*0.9;
+      drawHeartShape(ctx, t.x, t.y, 8*a, "#ffb6c8", "#ff7aa2");
+      ctx.globalAlpha = 1;
+    } else if(t.kind==="bubble"){
+      ctx.globalAlpha = a*0.8;
+      ctx.fillStyle = "#cfeaff";
+      ctx.strokeStyle = "#7eb6dd";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(t.x, t.y, 8*a, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else if(t.kind==="rainbow"){
+      ctx.globalAlpha = a;
+      const g = ctx.createLinearGradient(t.x-10, t.y-10, t.x+10, t.y+10);
+      g.addColorStop(0,"#ff9ec0"); g.addColorStop(0.5,"#fff6a8"); g.addColorStop(1,"#bdd6ff");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(t.x, t.y, 8*a, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // player
+  const p = game.player;
+  const charId = SAVE.equipped.character;
+  const char = getCharacterById(charId);
+  const flicker = p.invuln>0 && Math.floor(game.time*16)%2===0;
+  if(!flicker){
+    drawDumpling(ctx, char, p.x+p.w/2, p.y+p.h/2, p.w, {
+      time:game.time, facing:p.facing,
+      squash:p.squash, stretch:p.stretch
+    });
+    if(SAVE.equipped.hat){
+      drawHat(ctx, SAVE.equipped.hat, p.x+p.w/2, p.y+p.h/2 - p.h*0.42, p.w*1.15, p.facing);
+    }
+  }
+
+  // particles
+  for(const part of game.particles){
+    if(part.text){
+      ctx.globalAlpha = Math.min(1, part.life/part.max);
+      ctx.fillStyle = part.color||"#000";
+      ctx.font = "900 22px Nunito,sans-serif";
+      ctx.textAlign="center";
+      ctx.fillText(part.text, part.x, part.y);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.globalAlpha = Math.min(1, part.life/part.max);
+      ctx.fillStyle = part.color;
+      ctx.beginPath(); ctx.arc(part.x, part.y, part.r, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  ctx.restore();
+
+  // overlay HUD (canvas-side things)
+}
+
+// ---------- HUD ----------
+const hudBalance = document.getElementById("balance");
+const hudHearts = document.getElementById("hearts");
+const hudChar = document.getElementById("charName");
+const hudCharIcon = document.getElementById("charIcon");
+function updateHud(){
+  hudBalance.textContent = SAVE.lafoofoos;
+  // hearts
+  const max = 3;
+  let html="";
+  const cur = game.player?game.player.hearts:3;
+  for(let i=0;i<max;i++){
+    html += `<span class="heart${i<cur?"":" empty"}"></span>`;
+  }
+  hudHearts.innerHTML = html;
+  // char
+  const ch = getCharacterById(SAVE.equipped.character);
+  hudChar.textContent = ch.name;
+  const ic = hudCharIcon.getContext("2d");
+  ic.clearRect(0,0,32,32);
+  drawDumpling(ic, ch, 16, 17, 22, {time:performance.now()/1000, facing:1});
+  document.getElementById("shopBalance").textContent = SAVE.lafoofoos;
+  document.getElementById("colBalance").textContent = SAVE.lafoofoos;
+}
+
+// ---------- Toast ----------
+const toastEl = document.getElementById("toast");
+let toastTimer=null;
+function showToast(msg, ms=1400){
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.classList.remove("show"), ms);
+}
+
+// ---------- State machine ----------
+function setState(s){ game.state = s; }
+function togglePause(){
+  if(game.state===STATE.PLAY){
+    setState(STATE.PAUSE);
+    document.getElementById("pauseScreen").classList.add("show");
+  } else if(game.state===STATE.PAUSE){
+    setState(STATE.PLAY);
+    document.getElementById("pauseScreen").classList.remove("show");
+  }
+}
+function completeLevel(){
+  if(game.state!==STATE.PLAY) return;
+  SFX.win();
+  setState(STATE.LEVELC);
+  const lv = LEVELS[game.levelIdx];
+  const timeSec = (performance.now() - game.startedAt)/1000;
+  const clearReward = 50 + game.levelIdx*30;
+  SAVE.lafoofoos += clearReward;
+  SAVE.levelsCleared = Math.max(SAVE.levelsCleared, game.levelIdx+1);
+  const prev = SAVE.bestPerLevel[lv.name] || {coins:0,time:Infinity};
+  SAVE.bestPerLevel[lv.name] = {
+    coins: Math.max(prev.coins, game.coinsCollected),
+    time: Math.min(prev.time, timeSec)
+  };
+  saveNow();
+  updateHud();
+  // populate breakdown
+  const bd = document.getElementById("lcBreakdown");
+  bd.innerHTML = `
+    <div>🪙 Coins this run: <b>${game.coinsCollected}</b></div>
+    <div>🏁 Clear bonus: <b>+${clearReward}</b></div>
+    <div>⏱ Time: <b>${timeSec.toFixed(1)}s</b></div>
+    <div>💰 Balance: <b>${SAVE.lafoofoos}</b> Lafoofoos</div>`;
+  // draw a happy dumpling on the popup
+  const lcArt = document.getElementById("lcArt").getContext("2d");
+  lcArt.clearRect(0,0,220,180);
+  drawConfetti(lcArt, 220, 180);
+  drawDumpling(lcArt, getCharacterById(SAVE.equipped.character), 110, 110, 90, {time:performance.now()/1000, facing:1, squash:0.95, stretch:1.05});
+  document.getElementById("levelComplete").classList.add("show");
+}
+function drawConfetti(c, w, h){
+  for(let i=0;i<40;i++){
+    c.fillStyle = ["#ff9ec0","#ffd34d","#b9e8b1","#bdd6ff","#dabdf5"][i%5];
+    const x = Math.random()*w, y = Math.random()*h*0.6;
+    c.save(); c.translate(x,y); c.rotate(Math.random()*Math.PI);
+    c.fillRect(-4,-2,8,4); c.restore();
+  }
+}
+function nextLevel(){
+  document.getElementById("levelComplete").classList.remove("show");
+  if(game.levelIdx+1 < LEVELS.length){
+    loadLevel(game.levelIdx+1);
+    setState(STATE.PLAY);
+  } else {
+    // loop back & give bonus
+    SAVE.lafoofoos += 200;
+    saveNow(); updateHud();
+    showToast("You cleared all levels! +200 ✨");
+    loadLevel(0);
+    setState(STATE.PLAY);
+  }
+}
+
+// ---------- Main loop ----------
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.033, (now-last)/1000);
+  last = now;
+  game.time += dt;
+
+  if(game.state===STATE.PLAY){
+    updatePlayer(game.player, dt);
+    updateEnemies(dt);
+    updateParticles(dt);
+    updateTrails(dt);
+    updateCamera();
+  } else {
+    // still animate idle in title
+    if(game.state===STATE.TITLE){
+      // animate title art
+      drawTitleArt();
+    }
+    // run a "soft" tick for visuals when paused
+    updateParticles(dt*0.5);
+    updateTrails(dt*0.5);
+  }
+
+  if(game.state!==STATE.TITLE){
+    render();
+  } else {
+    // title — paint sky on game canvas anyway for nice ambience
+    drawBackdrop("village", game.time, 0);
+    // big logo dumpling cluster on canvas
+    drawTitleClusterOnGame();
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- Title screen ----------
+function drawTitleArt(){
+  const c = document.getElementById("titleArt").getContext("2d");
+  c.clearRect(0,0,380,180);
+  // basket
+  drawBamboo(c, 60, 110, 260, 38, "#d6a667","#a87538");
+  // dumplings inside
+  drawDumpling(c, getCharacterById("pink"), 110, 90, 70, {time:performance.now()/1000, facing:1, squash:0.96+0.04*Math.sin(performance.now()/300)});
+  drawDumpling(c, getCharacterById("blue"), 190, 80, 70, {time:performance.now()/1000+0.5, facing:-1, squash:0.96+0.04*Math.sin(performance.now()/350+1)});
+  drawDumpling(c, getCharacterById("gold"), 270, 88, 68, {time:performance.now()/1000+1, facing:1, squash:0.96+0.04*Math.sin(performance.now()/320+2)});
+  // little coin
+  drawCoin(c, 40, 60, performance.now()/250);
+  drawCoin(c, 340, 70, performance.now()/220);
+}
+function drawTitleClusterOnGame(){
+  const cx = VW*0.5, cy = VH*0.62;
+  drawBamboo(ctx, cx-280, cy+30, 560, 60, "#d6a667","#a87538");
+  drawDumpling(ctx, getCharacterById("pink"), cx-170, cy-10, 140, {time:game.time, facing:1, squash:0.96+0.04*Math.sin(game.time*2)});
+  drawDumpling(ctx, getCharacterById("blue"), cx,    cy-30, 140, {time:game.time+0.5, facing:-1, squash:0.96+0.04*Math.sin(game.time*2+1)});
+  drawDumpling(ctx, getCharacterById("gold"), cx+170, cy-15, 140, {time:game.time+1, facing:1, squash:0.96+0.04*Math.sin(game.time*2+2)});
+  // floating coins
+  for(let i=0;i<10;i++){
+    drawCoin(ctx, 120+i*150, 200 + Math.sin(game.time*1.5+i)*16, game.time+i);
+  }
+}
+
+// ---------- UI wiring ----------
+function buildPicker(){
+  const picker = document.getElementById("picker");
+  picker.innerHTML="";
+  const list = CHARACTERS.filter(c=> SAVE.unlocked.character.includes(c.id));
+  list.forEach(c=>{
+    const card = document.createElement("div");
+    card.className = "card" + (SAVE.equipped.character===c.id?" equipped":"");
+    card.style.cursor="pointer";
+    card.innerHTML = `<canvas width="120" height="120"></canvas>
+      <div class="name">${c.name}</div>
+      <div class="rarity ${c.rarity}">${RARITY[c.rarity].label}</div>`;
+    const cv = card.querySelector("canvas").getContext("2d");
+    drawDumpling(cv, c, 60, 60, 86, {time:0, facing:1});
+    card.addEventListener("click", ()=>{
+      SAVE.equipped.character = c.id;
+      saveNow(); buildPicker(); updateHud();
+      SFX.click();
+    });
+    picker.appendChild(card);
+  });
+  if(list.length===1){
+    const note = document.createElement("div");
+    note.style.cssText="color:#7a5263;font-weight:700;align-self:center;padding:6px 10px;background:#fff;border-radius:12px;border:1.5px dashed #ffd9e3;font-size:14px;";
+    note.textContent = "Open mystery boxes to find more dumpling friends!";
+    picker.appendChild(note);
+  }
+}
+
+function showOverlay(id){
+  document.querySelectorAll(".overlay").forEach(o=>o.classList.remove("show"));
+  document.getElementById(id).classList.add("show");
+}
+
+function startGame(){
+  document.getElementById("titleScreen").classList.remove("show");
+  document.getElementById("levelComplete").classList.remove("show");
+  document.getElementById("gameOver").classList.remove("show");
+  loadLevel(0);
+  setState(STATE.PLAY);
+  ensureAudio();
+  updateHud();
+}
+
+// ---------- Shop & Collection ----------
+function priceLabel(item){
+  if(SAVE.unlocked[catOf(item)] && SAVE.unlocked[catOf(item)].includes(item.id)){
+    if(SAVE.equipped[catOf(item)]===item.id) return "Equipped";
+    return "Owned · Tap to wear";
+  }
+  return `🪙 ${item.price}`;
+}
+function catOf(item){
+  for(const k of Object.keys(CATALOG)){
+    if(CATALOG[k].includes(item)) return k;
+  }
+  return null;
+}
+let shopCat = "character";
+function buildShop(){
+  const grid = document.getElementById("shopGrid");
+  grid.innerHTML="";
+  if(shopCat==="character"){
+    // Mystery boxes
+    const info = document.createElement("div");
+    info.style.cssText="grid-column:1/-1;text-align:center;color:#7a5263;font-weight:800;padding:10px 12px;background:#fff8fb;border-radius:14px;border:1.5px dashed #ffd9e3;line-height:1.4;";
+    info.innerHTML = `🎁 <b>Mystery Steamer Boxes</b> — open them to discover random dumpling friends!<br>
+      <span style="font-weight:700;color:var(--ink-soft);font-size:13px;">Duplicates refund a portion of the price as Lafoofoos shards.</span>`;
+    grid.appendChild(info);
+    BOXES.forEach(box=>{
+      const card = document.createElement("div");
+      card.className = "card box-card";
+      const previewSize = 120;
+      const ratesHtml = ["common","rare","epic","legendary"].map(r=>{
+        const pct = Math.round((box.rates[r]||0)*100);
+        if(pct===0) return "";
+        return `<span class="rate rate-${r}">${RARITY[r].label.slice(0,3)} ${pct}%</span>`;
+      }).join("");
+      card.innerHTML = `
+        <canvas class="preview" width="${previewSize*2}" height="${previewSize*2}" style="width:${previewSize}px;height:${previewSize}px;"></canvas>
+        <div class="name">${box.name}</div>
+        <div class="rarity" style="color:var(--ink-soft);text-transform:none;letter-spacing:0;font-weight:700;">${box.tagline}</div>
+        <div class="rates-row">${ratesHtml}</div>
+        <div class="price">🪙 ${box.price}</div>
+        <div class="badge" style="background:#fff;border-color:#ffd9e3;color:#ff7aa2;">📦</div>`;
+      const cv = card.querySelector("canvas").getContext("2d");
+      drawBoxPreview(cv, box, previewSize*2);
+      // animate the preview softly
+      const id = setInterval(()=>{
+        if(!document.body.contains(card)){ clearInterval(id); return; }
+        drawBoxPreview(cv, box, previewSize*2);
+      }, 120);
+      card.addEventListener("click", ()=>{
+        if(SAVE.lafoofoos < box.price){
+          SFX.hurt(); showToast("Not enough Lafoofoos!");
+          return;
+        }
+        SAVE.lafoofoos -= box.price;
+        saveNow(); updateHud();
+        SFX.click();
+        // Hide shop, run unbox animation
+        document.getElementById("shopScreen").classList.remove("show");
+        startUnbox(box);
+      });
+      grid.appendChild(card);
+    });
+    return;
+  }
+  // Other categories use the original direct-purchase logic
+  const list = CATALOG[shopCat];
+  list.forEach(item=>{
+    const unlocked = SAVE.unlocked[shopCat].includes(item.id);
+    const equipped = SAVE.equipped[shopCat] === item.id;
+    const card = document.createElement("div");
+    card.className = "card " + (unlocked?"unlocked":"locked") + (equipped?" equipped":"");
+    const previewSize = 100;
+    card.innerHTML = `
+      <canvas class="preview" width="${previewSize*2}" height="${previewSize*2}" style="width:${previewSize}px;height:${previewSize}px;"></canvas>
+      <div class="name">${item.name}</div>
+      <div class="rarity ${item.rarity}">${RARITY[item.rarity].label}</div>
+      <div class="price">${unlocked? (equipped?"Equipped":"Tap to wear") : "🪙 "+item.price}</div>
+      <div class="badge">${unlocked? (equipped?"★":"✓") : "🔒"}</div>`;
+    const cv = card.querySelector("canvas").getContext("2d");
+    drawShopPreview(cv, shopCat, item, previewSize*2);
+    card.addEventListener("click", ()=>{
+      if(!unlocked){
+        if(SAVE.lafoofoos >= item.price){
+          SAVE.lafoofoos -= item.price;
+          SAVE.unlocked[shopCat].push(item.id);
+          if(shopCat==="theme"){ /* themes auto-apply per level */ }
+          else SAVE.equipped[shopCat] = item.id;
+          saveNow(); updateHud(); buildShop(); buildCollection(); buildPicker();
+          SFX.purchase();
+          showReveal(shopCat, item);
+        } else {
+          SFX.hurt();
+          showToast("Not enough Lafoofoos!");
+        }
+      } else {
+        if(shopCat==="hat" || shopCat==="trail"){
+          SAVE.equipped[shopCat] = (SAVE.equipped[shopCat]===item.id)? null : item.id;
+        } else {
+          SAVE.equipped[shopCat] = item.id;
+        }
+        saveNow(); updateHud(); buildShop(); buildCollection(); buildPicker();
+        SFX.click();
+        showToast(`${item.name} equipped`);
+      }
+    });
+    grid.appendChild(card);
+  });
+}
+function drawShopPreview(c, cat, item, size){
+  c.clearRect(0,0,size,size);
+  if(cat==="character"){
+    drawDumpling(c, item, size/2, size/2 + 6, size*0.72, {time:performance.now()/1000, facing:1});
+  } else if(cat==="basket"){
+    drawBamboo(c, size*0.10, size*0.55, size*0.80, size*0.22, item.color, item.dark);
+    drawDumpling(c, getCharacterById(SAVE.equipped.character), size/2, size*0.40, size*0.55, {time:performance.now()/1000, facing:1});
+  } else if(cat==="hat"){
+    drawDumpling(c, getCharacterById(SAVE.equipped.character), size/2, size/2 + 8, size*0.65, {time:performance.now()/1000, facing:1});
+    drawHat(c, item.id, size/2, size*0.42, size*0.65, 1);
+  } else if(cat==="trail"){
+    drawDumpling(c, getCharacterById(SAVE.equipped.character), size*0.6, size*0.5, size*0.55, {time:performance.now()/1000, facing:1});
+    for(let i=0;i<6;i++){
+      const x = size*0.3 - i*8, y = size*0.55 + Math.sin(i)*4;
+      if(item.id==="sparkle") drawSparkle(c, x, y, 7);
+      else if(item.id==="heart") drawHeartShape(c, x, y, 7, "#ffb6c8","#ff7aa2");
+      else if(item.id==="bubble"){ c.fillStyle="#cfeaff"; c.strokeStyle="#7eb6dd"; c.lineWidth=1.5; c.beginPath(); c.arc(x,y,7,0,Math.PI*2); c.fill(); c.stroke(); }
+      else if(item.id==="rainbow"){ const g=c.createLinearGradient(x-8,y-8,x+8,y+8); g.addColorStop(0,"#ff9ec0"); g.addColorStop(0.5,"#fff6a8"); g.addColorStop(1,"#bdd6ff"); c.fillStyle=g; c.beginPath(); c.arc(x,y,7,0,Math.PI*2); c.fill(); }
+    }
+  } else if(cat==="theme"){
+    // mini diorama
+    const lvData = LEVELS.find(L=>L.theme===item.id) || LEVELS[0];
+    // sky
+    const sky = c.createLinearGradient(0,0,0,size);
+    const themeColors = {
+      village:["#ffe7f0","#fff6da"],
+      candy:["#ffdfee","#fff0c8"],
+      temple:["#fff2c0","#ffd6a3"],
+      skyland:["#bfe4ff","#e9f6ff"],
+      market:["#1f1740","#3a2a66"]
+    }[item.id] || ["#ffe7f0","#fff6da"];
+    sky.addColorStop(0,themeColors[0]); sky.addColorStop(1,themeColors[1]);
+    c.fillStyle = sky; c.fillRect(0,0,size,size);
+    drawCloud(c, size*0.25, size*0.30, 0.5, 0.95);
+    drawCloud(c, size*0.75, size*0.20, 0.4, 0.95);
+    drawBamboo(c, size*0.10, size*0.70, size*0.80, size*0.10, "#d6a667","#a87538");
+    drawDumpling(c, getCharacterById(SAVE.equipped.character), size*0.5, size*0.58, size*0.4, {time:performance.now()/1000, facing:1});
+  }
+}
+
+function buildCollection(){
+  const grid = document.getElementById("collectionGrid");
+  grid.innerHTML="";
+  CHARACTERS.forEach(c=>{
+    const unlocked = SAVE.unlocked.character.includes(c.id);
+    const equipped = SAVE.equipped.character===c.id;
+    const card = document.createElement("div");
+    card.className = "card " + (unlocked?"unlocked":"locked") + (equipped?" equipped":"");
+    card.innerHTML = `
+      <canvas class="preview" width="200" height="200" style="width:100px;height:100px;"></canvas>
+      <div class="name">${unlocked? c.name : "???"}</div>
+      <div class="rarity ${c.rarity}">${RARITY[c.rarity].label}</div>
+      <div class="price">${unlocked? (equipped?"Wearing":"Tap to wear") : "📦 Open boxes"}</div>
+      <div class="badge">${unlocked? (equipped?"★":"✓") : "🔒"}</div>`;
+    const cv = card.querySelector("canvas").getContext("2d");
+    if(unlocked){
+      drawDumpling(cv, c, 100, 106, 150, {time:performance.now()/1000, facing:1});
+    } else {
+      // silhouette
+      cv.fillStyle="#f1d4dc";
+      cv.beginPath(); cv.ellipse(100, 106, 70, 64, 0, 0, Math.PI*2); cv.fill();
+      cv.fillStyle="#fff";
+      cv.font="900 60px Nunito,sans-serif"; cv.textAlign="center"; cv.textBaseline="middle";
+      cv.fillText("?", 100, 110);
+    }
+    card.addEventListener("click", ()=>{
+      if(unlocked){
+        SAVE.equipped.character=c.id; saveNow(); updateHud(); buildCollection(); buildPicker(); SFX.click();
+      } else {
+        SFX.hurt();
+        showToast("Open mystery boxes in the shop to find this one!");
+      }
+    });
+    grid.appendChild(card);
+  });
+}
+
+// ---------- Mystery box unboxing ----------
+let unboxState = null;
+let unboxRunId = 0;
+function startUnbox(box){
+  unboxRunId++;
+  const myRun = unboxRunId;
+  const char = rollBox(box);
+  const isNew = !SAVE.unlocked.character.includes(char.id);
+  unboxState = {
+    runId: myRun,
+    box, char, isNew,
+    t:0, lastTime:performance.now(),
+    skipped:false, completed:false, processed:false, revealStartedAt:null,
+    burstParticles:[]
+  };
+  // pause game if in play
+  if(game.state===STATE.PLAY){ setState(STATE.PAUSE); _pausedForMenu = true; }
+  document.getElementById("unboxScreen").classList.add("show");
+  document.getElementById("unboxTitle").textContent = "Opening…";
+  document.getElementById("unboxBoxName").textContent = box.name;
+  document.getElementById("unboxResultArea").style.display = "none";
+  document.getElementById("unboxButtons").style.display = "none";
+  document.getElementById("btnUnboxSkip").style.display = "inline-block";
+  function loop(now){
+    if(myRun !== unboxRunId || !unboxState) return;
+    unboxFrame(now);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+function unboxFrame(now){
+  if(!unboxState) return;
+  const dt = Math.min(0.05, (now - unboxState.lastTime)/1000);
+  unboxState.lastTime = now;
+  unboxState.t += dt;
+  const c = document.getElementById("unboxCanvas").getContext("2d");
+  const W = 480, H = 420;
+  c.clearRect(0,0,W,H);
+
+  const { box, char, t, skipped } = unboxState;
+  const rarityColor = RARITY[char.rarity].color;
+
+  // soft background gradient
+  const bg = c.createRadialGradient(W/2, H/2, 20, W/2, H/2, W*0.7);
+  bg.addColorStop(0, box.glow);
+  bg.addColorStop(1, "rgba(255,255,255,0)");
+  c.fillStyle = bg;
+  c.fillRect(0,0,W,H);
+
+  // ambient swirling sparkles
+  for(let i=0;i<14;i++){
+    const a = t*0.8 + i*(Math.PI*2/14);
+    const r = 150 + Math.sin(t*1.5+i)*20;
+    const ax = W/2 + Math.cos(a)*r;
+    const ay = H/2 + Math.sin(a)*r*0.6;
+    c.globalAlpha = 0.5 + 0.5*Math.sin(t*3+i);
+    drawSparkle(c, ax, ay, 5);
+    c.globalAlpha = 1;
+  }
+
+  const PHASE_SHAKE = 2.2;
+  const PHASE_BURST = 0.7;
+
+  let displayT = t;
+  if(skipped) displayT = PHASE_SHAKE + PHASE_BURST + 0.6;
+
+  if(displayT < PHASE_SHAKE){
+    // shake phase — intensity ramps up
+    const p = displayT/PHASE_SHAKE;
+    const shakeAmt = 2 + p*p*16;
+    const size = 200 + Math.sin(displayT*8)*6 + p*30;
+    // pulse ring
+    c.save();
+    c.globalAlpha = 0.25 + p*0.45;
+    c.strokeStyle = rarityColor;
+    c.lineWidth = 3 + p*5;
+    c.beginPath(); c.arc(W/2, H/2, 130 + Math.sin(displayT*5)*8 + p*15, 0, Math.PI*2); c.stroke();
+    c.restore();
+    drawBoxClosed(c, W/2, H/2, size, box, displayT, shakeAmt);
+    // little jump sound at intervals
+    if(!unboxState.lastTick || displayT - unboxState.lastTick > 0.4){
+      unboxState.lastTick = displayT;
+      beep(220 + p*200, 0.06, "sine", 0.04);
+    }
+  } else if(displayT < PHASE_SHAKE + PHASE_BURST){
+    // burst phase
+    const p = (displayT - PHASE_SHAKE)/PHASE_BURST;
+    if(!unboxState.burstSpawned){
+      unboxState.burstSpawned = true;
+      for(let i=0;i<32;i++){
+        const a = (i/32)*Math.PI*2 + (Math.random()-0.5)*0.3;
+        const v = 280 + Math.random()*180;
+        unboxState.burstParticles.push({
+          x:0, y:0,
+          vx:Math.cos(a)*v, vy:Math.sin(a)*v - 100,
+          life:0.9 + Math.random()*0.4, max:1.3,
+          color: i%3===0 ? rarityColor : (i%3===1 ? "#fff7a8" : "#fff"),
+          r: 5 + Math.random()*4
+        });
+      }
+      chord([520, 660, 880], 0.04, 0.12, "triangle", 0.07);
+    }
+    // box bottom remains
+    drawBoxOpenBottom(c, W/2, H/2 + 10, 220, box);
+    // lid flies up
+    const lidY = H/2 - p*260;
+    drawBoxLid(c, W/2 + Math.sin(p*8)*8, lidY, 220, box, p*Math.PI*1.5);
+    // burst particles
+    for(const part of unboxState.burstParticles){
+      part.x += part.vx*0.016;
+      part.y += part.vy*0.016;
+      part.vy += 600*0.016;
+      part.life -= 0.016;
+      if(part.life>0){
+        c.globalAlpha = Math.max(0, Math.min(1, part.life/part.max));
+        c.fillStyle = part.color;
+        c.beginPath(); c.arc(W/2+part.x, H/2+part.y, part.r, 0, Math.PI*2); c.fill();
+        c.globalAlpha = 1;
+      }
+    }
+    // beam of light from box
+    c.save();
+    const beamAlpha = 0.5 * p;
+    const beam = c.createLinearGradient(0, H/2, 0, 0);
+    beam.addColorStop(0, `rgba(255,243,170,${beamAlpha})`);
+    beam.addColorStop(1, `rgba(255,243,170,0)`);
+    c.fillStyle = beam;
+    c.beginPath();
+    c.moveTo(W/2-30, H/2);
+    c.lineTo(W/2-90, 0);
+    c.lineTo(W/2+90, 0);
+    c.lineTo(W/2+30, H/2);
+    c.closePath();
+    c.fill();
+    c.restore();
+  } else {
+    // reveal phase
+    if(!unboxState.revealStartedAt){
+      unboxState.revealStartedAt = displayT;
+      if(!skipped) SFX.reveal();
+    }
+    const rt = Math.min(1, (displayT - PHASE_SHAKE - PHASE_BURST)/0.8);
+    // box bottom remains lower
+    drawBoxOpenBottom(c, W/2, H/2 + 80, 200, box);
+    // light beam continues
+    c.save();
+    c.globalAlpha = 0.6;
+    const beam = c.createLinearGradient(0, H/2+80, 0, 0);
+    beam.addColorStop(0, "rgba(255,243,170,0.6)");
+    beam.addColorStop(1, "rgba(255,243,170,0)");
+    c.fillStyle = beam;
+    c.beginPath();
+    c.moveTo(W/2-30, H/2+80);
+    c.lineTo(W/2-90, 0);
+    c.lineTo(W/2+90, 0);
+    c.lineTo(W/2+30, H/2+80);
+    c.closePath();
+    c.fill();
+    c.restore();
+    // dumpling rising
+    const dy = (H/2 + 60) - rt*120;
+    const size = 130 + rt*30;
+    drawDumpling(c, char, W/2, dy, size, {
+      time: t, facing: 1,
+      squash: 0.95 + 0.05*Math.sin(t*4),
+      stretch: 1.05 - 0.05*Math.sin(t*4)
+    });
+    // halo sparkles around dumpling
+    for(let i=0;i<10;i++){
+      const a = t*1.5 + i*(Math.PI*2/10);
+      const rr = size*0.9;
+      drawSparkle(c, W/2 + Math.cos(a)*rr, dy + Math.sin(a)*rr*0.7, 8 + Math.sin(t*4+i)*2);
+    }
+    // rarity glow ring
+    c.save();
+    c.globalAlpha = 0.6 + 0.3*Math.sin(t*3);
+    c.strokeStyle = rarityColor;
+    c.lineWidth = 5;
+    c.beginPath();
+    c.arc(W/2, dy, size*0.95, 0, Math.PI*2);
+    c.stroke();
+    c.restore();
+
+    if(rt >= 1 && !unboxState.processed){
+      finalizeUnbox();
+    }
+  }
+
+}
+function finalizeUnbox(){
+  unboxState.processed = true;
+  const { box, char, isNew } = unboxState;
+  let dupRefund = 0;
+  if(isNew){
+    SAVE.unlocked.character.push(char.id);
+    SAVE.equipped.character = char.id;
+  } else {
+    dupRefund = Math.floor(box.price * 0.35);
+    SAVE.lafoofoos += dupRefund;
+  }
+  saveNow();
+  updateHud();
+  buildCollection();
+  buildPicker();
+  // result area
+  document.getElementById("unboxTitle").textContent = isNew ? "✨ New dumpling!" : "Already collected";
+  document.getElementById("unboxResultName").textContent = char.name;
+  document.getElementById("unboxResultRarity").innerHTML =
+    `<span class="rarity ${char.rarity}">${RARITY[char.rarity].label}</span>`;
+  document.getElementById("unboxResultDup").textContent =
+    isNew ? `Added to your collection!` : `Duplicate — +${dupRefund} Lafoofoos shards!`;
+  document.getElementById("unboxResultArea").style.display = "block";
+  document.getElementById("unboxButtons").style.display = "flex";
+  document.getElementById("btnUnboxSkip").style.display = "none";
+  // Hide Wear button if no longer applicable
+  document.getElementById("btnUnboxEquip").textContent =
+    SAVE.equipped.character===char.id ? "Already wearing" : "Wear it!";
+}
+function closeUnbox(){
+  document.getElementById("unboxScreen").classList.remove("show");
+  unboxState = null;
+  // return to shop
+  buildShop();
+  document.getElementById("shopScreen").classList.add("show");
+}
+function unboxAgain(){
+  if(!unboxState) return;
+  const box = unboxState.box;
+  if(SAVE.lafoofoos < box.price){
+    SFX.hurt(); showToast("Not enough Lafoofoos!");
+    return;
+  }
+  SAVE.lafoofoos -= box.price;
+  saveNow(); updateHud();
+  // restart animation with same box
+  document.getElementById("unboxScreen").classList.remove("show");
+  startUnbox(box);
+}
+function wearLastUnbox(){
+  if(!unboxState) return;
+  const c = unboxState.char;
+  if(SAVE.unlocked.character.includes(c.id)){
+    SAVE.equipped.character = c.id;
+    saveNow(); updateHud(); buildCollection(); buildPicker();
+    SFX.click();
+    document.getElementById("btnUnboxEquip").textContent = "Already wearing";
+  }
+}
+function skipUnbox(){
+  if(!unboxState) return;
+  unboxState.skipped = true;
+}
+
+function showReveal(cat, item){
+  document.getElementById("revealBg").classList.add("show");
+  document.getElementById("revealScreen").classList.add("show");
+  document.getElementById("revealName").textContent = item.name;
+  document.getElementById("revealRarity").innerHTML = `<span class="rarity ${item.rarity}">${RARITY[item.rarity].label}</span>`;
+  const cv = document.getElementById("revealArt").getContext("2d");
+  cv.clearRect(0,0,220,220);
+  if(cat==="character") drawDumpling(cv, item, 110, 120, 160, {time:performance.now()/1000, facing:1});
+  else drawShopPreview(cv, cat, item, 220);
+  SFX.reveal();
+}
+function closeReveal(){
+  document.getElementById("revealBg").classList.remove("show");
+  document.getElementById("revealScreen").classList.remove("show");
+}
+
+// ---------- Daily login ----------
+function dailyCheck(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayKey = today.getTime();
+  if(SAVE.lastDaily !== todayKey){
+    const first = !SAVE.lastDaily;
+    SAVE.lastDaily = todayKey;
+    const reward = first?100:50;
+    SAVE.lafoofoos += reward;
+    saveNow();
+    document.getElementById("dailyToast").textContent = first?`Welcome! Here's ${reward} Lafoofoos to start ✨` : `Daily bonus: +${reward} Lafoofoos!`;
+  } else {
+    document.getElementById("dailyToast").textContent = "";
+  }
+}
+
+// ---------- Wire buttons ----------
+function wire(){
+  document.getElementById("btnPause").onclick = ()=>{ ensureAudio(); SFX.click(); togglePause(); };
+  document.getElementById("btnResume").onclick = ()=>{ SFX.click(); togglePause(); };
+  document.getElementById("btnPauseTitle").onclick = ()=>{ SFX.click(); document.getElementById("pauseScreen").classList.remove("show"); showOverlay("titleScreen"); buildPicker(); dailyCheck(); setState(STATE.TITLE); };
+  document.getElementById("btnPauseShop").onclick = ()=>{ SFX.click(); openShop(); };
+  document.getElementById("btnPauseCollection").onclick = ()=>{ SFX.click(); openCollection(); };
+
+  document.getElementById("btnShop").onclick = ()=>{ ensureAudio(); SFX.click(); openShop(); };
+  document.getElementById("btnCollection").onclick = ()=>{ ensureAudio(); SFX.click(); openCollection(); };
+  document.getElementById("btnShopClose").onclick = ()=>{ SFX.click(); closeShop(); };
+  document.getElementById("btnCollectionClose").onclick = ()=>{ SFX.click(); closeCollection(); };
+
+  document.querySelectorAll("#shopTabs .tab").forEach(t=>{
+    t.onclick = ()=>{
+      document.querySelectorAll("#shopTabs .tab").forEach(x=>x.classList.remove("active"));
+      t.classList.add("active");
+      shopCat = t.dataset.cat;
+      buildShop();
+      SFX.click();
+    };
+  });
+
+  document.getElementById("btnPlay").onclick = ()=>{ ensureAudio(); SFX.click(); startGame(); };
+  document.getElementById("btnHow").onclick = ()=>{ SFX.click(); showOverlay("howScreen"); };
+  document.getElementById("btnHowClose").onclick = ()=>{ SFX.click(); showOverlay("titleScreen"); };
+  document.getElementById("btnTitleShop").onclick = ()=>{ SFX.click(); openShop(true); };
+  document.getElementById("btnTitleCollection").onclick = ()=>{ SFX.click(); openCollection(true); };
+  document.getElementById("btnReset").onclick = ()=>{
+    if(confirm("Reset all progress and unlocks? Cannot be undone.")){
+      SAVE = defaultSave(); saveNow(); updateHud(); buildPicker(); buildShop(); buildCollection();
+      showToast("Save reset!");
+    }
+  };
+
+  document.getElementById("btnNext").onclick = ()=>{ SFX.click(); nextLevel(); };
+  document.getElementById("btnReplay").onclick = ()=>{ SFX.click(); document.getElementById("levelComplete").classList.remove("show"); loadLevel(game.levelIdx); setState(STATE.PLAY); };
+  document.getElementById("btnLCShop").onclick = ()=>{ SFX.click(); openShop(); };
+  document.getElementById("btnLCTitle").onclick = ()=>{ SFX.click(); document.getElementById("levelComplete").classList.remove("show"); showOverlay("titleScreen"); buildPicker(); dailyCheck(); setState(STATE.TITLE); };
+
+  document.getElementById("btnRetry").onclick = ()=>{ SFX.click(); document.getElementById("gameOver").classList.remove("show"); loadLevel(game.levelIdx); setState(STATE.PLAY); };
+  document.getElementById("btnGOTitle").onclick = ()=>{ SFX.click(); document.getElementById("gameOver").classList.remove("show"); showOverlay("titleScreen"); buildPicker(); dailyCheck(); setState(STATE.TITLE); };
+
+  document.getElementById("btnRevealClose").onclick = ()=>{ SFX.click(); closeReveal(); };
+  document.getElementById("btnRevealEquip").onclick = ()=>{ SFX.click(); closeReveal(); };
+
+  document.getElementById("btnUnboxEquip").onclick = ()=>{ SFX.click(); wearLastUnbox(); };
+  document.getElementById("btnUnboxAgain").onclick = ()=>{ SFX.click(); unboxAgain(); };
+  document.getElementById("btnUnboxClose").onclick = ()=>{ SFX.click(); closeUnbox(); };
+  document.getElementById("btnUnboxSkip").onclick = ()=>{ SFX.click(); skipUnbox(); };
+
+  // close shop/collection by tapping outside the panel
+  ["shopScreen","collectionScreen","howScreen"].forEach(id=>{
+    const el = document.getElementById(id);
+    el.addEventListener("click", e=>{ if(e.target===el){ el.classList.remove("show"); if(game.state===STATE.PLAY){/* resume*/} if(id==="howScreen") showOverlay("titleScreen"); }});
+  });
+}
+let _returnTo = null; // overlay id to re-show after closing shop/collection
+let _pausedForMenu = false;
+function openShop(){
+  if(game.state===STATE.PLAY){ setState(STATE.PAUSE); _pausedForMenu = true; }
+  _returnTo = currentVisibleOverlay(["shopScreen","collectionScreen","revealScreen","howScreen"]);
+  buildShop();
+  document.getElementById("shopScreen").classList.add("show");
+}
+function closeShop(){
+  document.getElementById("shopScreen").classList.remove("show");
+  finishMenuReturn();
+}
+function openCollection(){
+  if(game.state===STATE.PLAY){ setState(STATE.PAUSE); _pausedForMenu = true; }
+  _returnTo = currentVisibleOverlay(["shopScreen","collectionScreen","revealScreen","howScreen"]);
+  buildCollection();
+  document.getElementById("collectionScreen").classList.add("show");
+}
+function closeCollection(){
+  document.getElementById("collectionScreen").classList.remove("show");
+  finishMenuReturn();
+}
+function finishMenuReturn(){
+  if(_returnTo) document.getElementById(_returnTo).classList.add("show");
+  else if(_pausedForMenu){
+    // resume play
+    setState(STATE.PLAY);
+    _pausedForMenu = false;
+  } else if(game.state===STATE.TITLE) document.getElementById("titleScreen").classList.add("show");
+  else if(game.state===STATE.PAUSE) document.getElementById("pauseScreen").classList.add("show");
+  else if(game.state===STATE.LEVELC) document.getElementById("levelComplete").classList.add("show");
+  _returnTo = null;
+}
+function currentVisibleOverlay(except){
+  const ids = ["titleScreen","pauseScreen","levelComplete","gameOver"];
+  for(const id of ids){
+    if(except && except.includes(id)) continue;
+    const el = document.getElementById(id);
+    if(el && el.classList.contains("show")) { el.classList.remove("show"); return id; }
+  }
+  return null;
+}
+
+// ---------- Boot ----------
+setupInput();
+wire();
+buildPicker();
+dailyCheck();
+updateHud();
+last = performance.now();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

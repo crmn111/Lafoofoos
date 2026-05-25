@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover" />
 <title>Lafoofoos — Squishy Dumpling Adventure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
 <style>
   :root{
     --pink:#ffb3c6;
@@ -272,15 +275,115 @@
 
   .pause-fab{position:absolute;top:14px;right:16px;}
   .menu-fabs{position:absolute;bottom:14px;right:16px;display:flex;gap:10px;}
+
+  /* "Developed by Maya" brand mark — icon + cursive text combo */
+  .maya-brand{
+    display:inline-flex;
+    align-items:center;
+    gap:.35em;
+    font-family:"Pacifico","Brush Script MT","Snell Roundhand",cursive;
+    line-height:1;
+    color:#b9347e;
+    pointer-events:none;
+  }
+  .maya-brand .maya-icon{
+    width:1.9em;height:2.2em;
+    display:block;flex-shrink:0;
+    filter:drop-shadow(0 1px 0 rgba(255,255,255,.8))
+           drop-shadow(0 3px 5px rgba(107,45,143,.28));
+  }
+  .maya-brand .maya-text{
+    display:flex;flex-direction:column;align-items:flex-start;
+    letter-spacing:.4px;
+    text-shadow:0 1px 0 rgba(255,255,255,.85),
+                0 3px 5px rgba(107,45,143,.22);
+  }
+  .maya-brand .line1{font-size:.55em;opacity:.85;margin-bottom:.06em;}
+  .maya-brand .line2{font-size:1em;}
+  /* Bottom-left placement on stage — vertically centered in the brown ground
+     band of the 16:9 canvas. The canvas is letterboxed inside the viewport,
+     so we compute its actual height first, then offset to the centre of the
+     brown band (roughly the bottom 15.5% of the canvas). */
+  .brand{
+    position:absolute;
+    left:18px;
+    --canvas-h: min(100vh, calc(100vw * 9 / 16));
+    bottom: calc((100vh - var(--canvas-h)) / 2 + var(--canvas-h) * 0.078 - 1.15em);
+    font-size:29px; /* 30% larger than the previous 22px baseline */
+    transform:rotate(-3deg);
+    z-index:10; /* sits above overlays (z-index:5) so it shows on every screen */
+  }
+  /* Lift above the touch dpad on touch devices so it doesn't sit behind buttons */
+  @media (pointer:coarse){
+    .brand{bottom:118px;}
+  }
+  /* During gameplay (no overlay open), the brand sits on the brown ground —
+     switch the text to white so it stays readable, and give the icon a white
+     rounded badge so the camera silhouette pops against the brown. */
+  body:not(:has(.overlay.show)) .brand .maya-text{
+    color:#fff;
+    text-shadow:0 2px 3px rgba(60,35,15,.55),
+                0 0 8px rgba(60,35,15,.35);
+  }
+  body:not(:has(.overlay.show)) .brand .maya-icon{
+    background:#fff;
+    border-radius:.32em;
+    padding:.08em .16em;
+    box-shadow:0 2px 5px rgba(60,35,15,.35),
+               inset 0 0 0 1px rgba(255,255,255,.9);
+  }
   @media (max-width:520px){
     .pill{font-size:15px;padding:5px 11px;}
     #titleScreen .logo{font-size:42px;}
     .grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));}
     .card canvas{width:80px;height:80px;}
+    .brand{font-size:26px;}
   }
 </style>
 </head>
 <body>
+<!-- Reusable SVG symbol for the "Developed by Maya" brand mark -->
+<svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <linearGradient id="mayaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"  stop-color="#ff7ab8"/>
+      <stop offset="50%" stop-color="#c93d8e"/>
+      <stop offset="100%" stop-color="#5a2a8f"/>
+    </linearGradient>
+    <symbol id="mayaLogo" viewBox="0 0 130 150">
+      <!-- sparkle trail -->
+      <path d="M 40 44 Q 56 22 72 12" fill="none" stroke="url(#mayaGrad)" stroke-width="5" stroke-linecap="round" opacity="0.85"/>
+      <!-- 4-point sparkle star -->
+      <path d="M 80 0 L 84 14 L 98 18 L 84 22 L 80 36 L 76 22 L 62 18 L 76 14 Z" fill="url(#mayaGrad)"/>
+      <!-- person body curve -->
+      <path d="M 38 62 Q 24 76 30 92 Q 36 102 30 112" fill="none" stroke="url(#mayaGrad)" stroke-width="10" stroke-linecap="round"/>
+      <!-- head -->
+      <circle cx="40" cy="52" r="8" fill="url(#mayaGrad)"/>
+      <!-- camera body -->
+      <rect x="8" y="92" width="70" height="52" rx="7" fill="url(#mayaGrad)"/>
+      <!-- viewfinder / projector hood on the right -->
+      <path d="M 78 104 L 110 90 L 110 146 L 78 132 Z" fill="url(#mayaGrad)"/>
+      <!-- lens hole (white background for aperture) -->
+      <circle cx="43" cy="118" r="18" fill="#fff"/>
+      <!-- aperture petals (5-blade iris) -->
+      <g fill="url(#mayaGrad)">
+        <path d="M 43 118 L 43 100 A 18 18 0 0 1 60 112 Z"/>
+        <path d="M 43 118 L 60 112 A 18 18 0 0 1 54 133 Z"/>
+        <path d="M 43 118 L 54 133 A 18 18 0 0 1 32 133 Z"/>
+        <path d="M 43 118 L 32 133 A 18 18 0 0 1 26 112 Z"/>
+        <path d="M 43 118 L 26 112 A 18 18 0 0 1 43 100 Z"/>
+      </g>
+      <!-- thin separator lines between aperture blades -->
+      <g stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none">
+        <line x1="43" y1="118" x2="43" y2="100"/>
+        <line x1="43" y1="118" x2="60" y2="112"/>
+        <line x1="43" y1="118" x2="54" y2="133"/>
+        <line x1="43" y1="118" x2="32" y2="133"/>
+        <line x1="43" y1="118" x2="26" y2="112"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
 <div id="wrap">
   <div id="stage">
     <canvas id="game" width="1600" height="900"></canvas>
@@ -325,6 +428,15 @@
       <div class="jump">
         <button class="tbtn" id="tJump">JUMP</button>
       </div>
+    </div>
+
+    <!-- Brand -->
+    <div class="brand maya-brand" aria-label="Developed by Maya">
+      <svg class="maya-icon" viewBox="0 0 130 150" aria-hidden="true"><use href="#mayaLogo"/></svg>
+      <span class="maya-text">
+        <span class="line1">Developed</span>
+        <span class="line2">by Maya</span>
+      </span>
     </div>
 
     <!-- Title screen -->
